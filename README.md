@@ -48,7 +48,7 @@ You ask OpenClaw to do something
 
 - **[OpenClaw](https://github.com/openclaw/openclaw)** installed and running (Gateway active)
 - **Node 22.16+** (Node 24 recommended)
-- An **Anthropic API key** — get one at [console.anthropic.com](https://console.anthropic.com/)
+- An **LLM API key** — Anthropic, OpenAI, or any OpenAI-compatible provider (Groq, Together, Ollama, etc.)
 
 ### Step 1: Install the plugin
 
@@ -62,33 +62,47 @@ Or install manually from npm:
 npm install openclown
 ```
 
-### Step 2: Set your Anthropic API key
+### Step 2: Configure your LLM provider
 
-OpenClown calls the Anthropic API directly to run evaluations. Choose whichever method works best for your setup:
+OpenClown supports multiple LLM providers. By default it uses **Anthropic (Claude)**, but you can switch to **OpenAI** or any **OpenAI-compatible** service.
 
-**Option A — Environment variable (simplest)**
-
-Add to your shell profile (`~/.zshrc`, `~/.bashrc`, etc.):
+#### Anthropic (default)
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Then restart your shell or run `source ~/.zshrc`.
-
-**Option B — Plugin config (per-install, no env needed)**
+Or via plugin config:
 
 ```bash
 openclaw config set plugins.entries.openclown.config.anthropicApiKey sk-ant-...
 ```
 
-This stores the key in your OpenClaw config file. Useful if you run multiple tools that each need different API keys, or if you prefer not to set global environment variables.
+Anthropic also supports OpenClaw's built-in model auth — if you've already configured Anthropic as a provider in OpenClaw, it will be used automatically.
 
-**Option C — OpenClaw model auth (automatic)**
+#### OpenAI
 
-If you've already configured Anthropic as a model provider in OpenClaw, OpenClown will attempt to use that auth automatically. No extra setup needed — but this may not work in all contexts (e.g., CLI command invocation).
+```bash
+openclaw config set plugins.entries.openclown.config.provider openai
+export OPENAI_API_KEY=sk-...
+```
 
-OpenClown tries these in order: plugin config → environment variable → OpenClaw model auth. The first one that returns a valid key wins.
+#### OpenAI-compatible services (Groq, Together, Ollama, LM Studio, etc.)
+
+Any service that exposes an OpenAI-compatible Chat Completions endpoint works:
+
+```bash
+# Groq
+openclaw config set plugins.entries.openclown.config.provider openai
+openclaw config set plugins.entries.openclown.config.baseUrl https://api.groq.com/openai/v1
+openclaw config set plugins.entries.openclown.config.openaiApiKey gsk_...
+openclaw config set plugins.entries.openclown.config.model llama-3.3-70b-versatile
+
+# Ollama (local — no API key needed)
+openclaw config set plugins.entries.openclown.config.provider openai
+openclaw config set plugins.entries.openclown.config.baseUrl http://localhost:11434/v1
+openclaw config set plugins.entries.openclown.config.model llama3
+```
 
 ### Step 3: Verify the setup
 
@@ -115,14 +129,21 @@ Your performer selection is persisted to `~/.openclaw/openclown/circus.json` and
 
 ### Step 5 (optional): Configure the evaluation model
 
-By default, OpenClown uses `claude-sonnet-4-6` for evaluations. You can switch to a cheaper or more powerful model:
+The default model depends on your provider:
+
+| Provider | Default Model |
+|----------|--------------|
+| `anthropic` | `claude-sonnet-4-6` |
+| `openai` | `gpt-4o` |
+
+Override with any model your provider supports:
 
 ```bash
-# Use a faster, cheaper model
+# Anthropic — use a faster model
 openclaw config set plugins.entries.openclown.config.model claude-haiku-4-5-20251001
 
-# Use the most capable model
-openclaw config set plugins.entries.openclown.config.model claude-opus-4-6
+# OpenAI — use a cheaper model
+openclaw config set plugins.entries.openclown.config.model gpt-4o-mini
 ```
 
 ## Quick start
@@ -174,24 +195,114 @@ You:     /clown #3
          → evaluates the weather response, not the translation
 ```
 
-### Reply targeting (messaging channels)
+### WhatsApp example — full interaction
 
-On WhatsApp, Telegram, Slack, or Discord — just reply to the message you want to evaluate:
+OpenClown works anywhere OpenClaw does, including WhatsApp. Here's what a typical session looks like:
 
 ```
-You:     [Reply to 🎪 #3] /clown
+┌─────────────────────────────────────┐
+│            WhatsApp Chat            │
+├─────────────────────────────────────┤
+│                                     │
+│  You:                          ◄──┐ │
+│  Find me a good sushi place        │ │
+│  near Shibuya for tonight          │ │
+│                                     │
+│  ┌─────────────────────────────┐   │ │
+│  │ OpenClaw:                   │   │ │
+│  │ Here are 3 top-rated sushi  │   │ │
+│  │ restaurants near Shibuya:   │   │ │
+│  │                             │   │ │
+│  │ 1. Sushi Saito — omakase,  │   │ │
+│  │    ¥15,000+, reservations  │   │ │
+│  │    required 1 month ahead  │   │ │
+│  │ 2. Genki Sushi — conveyor  │   │ │
+│  │    belt, budget-friendly   │   │ │
+│  │ 3. Sushi no Midori — long  │   │ │
+│  │    queues but worth it     │   │ │
+│  │                    [🎪 #1] │   │ │
+│  └─────────────────────────────┘   │ │
+│                                     │
+│  You:                               │
+│  /clown                             │
+│                                     │
+│  ┌─────────────────────────────┐   │ │
+│  │ OpenClaw:                   │   │ │
+│  │ 🎪 OpenClown Evaluation     │   │ │
+│  │ ━━━━━━━━━━━━━━━━━━━━━━━━   │   │ │
+│  │                             │   │ │
+│  │ 📋 "Find me a good sushi   │   │ │
+│  │    place near Shibuya..."   │   │ │
+│  │                             │   │ │
+│  │ 🎭 Philosopher              │   │ │
+│  │ "Good" is doing heavy      │   │ │
+│  │ lifting here — the list    │   │ │
+│  │ mixes a ¥15k omakase with  │   │ │
+│  │ a conveyor belt chain      │   │ │
+│  │ without asking about       │   │ │
+│  │ budget or occasion.        │   │ │
+│  │ Severity: 💡 Insight       │   │ │
+│  │                             │   │ │
+│  │ 🔒 Security Expert          │   │ │
+│  │ The search query likely     │   │ │
+│  │ included precise GPS       │   │ │
+│  │ coordinates. "Near         │   │ │
+│  │ Shibuya" is enough —       │   │ │
+│  │ exact lat/lng should not   │   │ │
+│  │ be sent to a third-party   │   │ │
+│  │ search API.                │   │ │
+│  │ Severity: ⚠️ Warning       │   │ │
+│  │                             │   │ │
+│  │ 💻 Developer                │   │ │
+│  │ Sushi Saito requires       │   │ │
+│  │ reservations 1 month       │   │ │
+│  │ ahead — recommending it    │   │ │
+│  │ for "tonight" is a dead    │   │ │
+│  │ end. Should filter by      │   │ │
+│  │ same-day availability.     │   │ │
+│  │ Severity: 🔴 Critical      │   │ │
+│  │                             │   │ │
+│  │ ━━━━━━━━━━━━━━━━━━━━━━━━   │   │ │
+│  └─────────────────────────────┘   │ │
+│                                     │
+│  You:                               │
+│  /clown encore                      │
+│                                     │
+│  ┌─────────────────────────────┐   │ │
+│  │ OpenClaw:                   │   │ │
+│  │ 🎪 Encore — Improved        │   │ │
+│  │                             │   │ │
+│  │ Since you said "tonight,"  │   │ │
+│  │ here are places you can    │   │ │
+│  │ actually walk into now:    │   │ │
+│  │                             │   │ │
+│  │ 1. Sushi no Midori         │   │ │
+│  │    Walk-in OK, ~30min wait │   │ │
+│  │    ¥3,000–5,000/person     │   │ │
+│  │ 2. Genki Sushi             │   │ │
+│  │    No wait, ¥1,000–2,000   │   │ │
+│  │ 3. Katsu Midori            │   │ │
+│  │    Walk-in OK, ¥4,000–6,000│   │ │
+│  │                    [🎪 #2] │   │ │
+│  └─────────────────────────────┘   │ │
+│                                     │
+└─────────────────────────────────────┘
+```
+
+This works on any messaging channel — WhatsApp, Telegram, Slack, Discord. On mobile, you can also **reply to a specific message** to target it:
+
+```
+You:     [Reply to 🎪 #1] /clown
          → evaluates exactly the message you replied to
 ```
-
-> **Screenshot needed:** A WhatsApp or Telegram screenshot showing a user replying to a specific AI response with `/clown`, and the evaluation result appearing in the chat.
 
 ### Keyword search
 
 Can't remember the reference number? Search by keyword:
 
 ```
-You:     /clown coffee
-         → finds and evaluates the most recent exchange mentioning "coffee"
+You:     /clown sushi
+         → finds and evaluates the most recent exchange mentioning "sushi"
 ```
 
 ### Follow-up questions — automatic conversation context
@@ -234,6 +345,10 @@ OpenClaw: 🎪 Encore — Improved Response
 
 ### Managing your circus
 
+Your circus is the set of performers (evaluators) that critique each AI response. By default, three are active: Philosopher, Security Expert, and Developer. You can add, remove, toggle, or reset them at any time.
+
+**View the current lineup:**
+
 ```
 You:     /clown circus
 OpenClaw: 🎪 Circus Performers
@@ -243,17 +358,52 @@ OpenClaw: 🎪 Circus Performers
          ✅ 3. 💻 Developer  [developer]
          ⬜ 4. ⚖️ Ethicist  [ethicist]
          ⬜ 5. 🔍 Fact Checker  [factchecker]
-         ...
+         ⬜ 6. 🎨 UX Designer  [ux]
+         ⬜ 7. 💰 VC Investor  [investor]
+         ⬜ 8. 😂 Comedian  [comedian]
+         ⬜ 9. 🎭 Shakespeare  [shakespeare]
+         ⬜ 10. 🕵️ Conspiracy Theorist  [conspiracy]
+         ⬜ 11. 👴 Grandparent  [grandparent]
+         ⬜ 12. 🐱 Cat Expert  [cat]
+```
 
+**Add performers** — enable one or more by ID:
+
+```
 You:     /clown circus add comedian ethicist
 OpenClaw: ✅ 😂 Comedian joined!
          ✅ ⚖️ Ethicist joined!
+```
 
-You:     /clown circus toggle 1,4
+**Remove performers** — disable one or more by ID:
+
+```
+You:     /clown circus remove philosopher security
+OpenClaw: ⬜ 🎭 Philosopher left the circus
+         ⬜ 🔒 Security Expert left the circus
+```
+
+At least one performer must remain active. If you try to remove the last one, you'll get an error.
+
+**Toggle by number** — flip performers on/off using the numbers from the list:
+
+```
+You:     /clown circus toggle 1,4,8
 OpenClaw: 🎪 Toggled:
          ⬜ 🎭 Philosopher
          ✅ ⚖️ Ethicist
+         ✅ 😂 Comedian
 ```
+
+**Reset to defaults** — restore the original three performers:
+
+```
+You:     /clown circus reset
+OpenClaw: 🎪 Circus reset to defaults: philosopher, security, developer.
+         Config saved.
+```
+
+Your lineup is saved to `~/.openclaw/openclown/circus.json` and persists across restarts.
 
 > **Screenshot needed:** A screenshot of the `/clown circus` numbered list showing a mix of enabled/disabled performers.
 
@@ -345,7 +495,13 @@ openclaw config set plugins.entries.openclown.config.enabled true
 # Auto-evaluate after every task (default: false)
 openclaw config set plugins.entries.openclown.config.autoEvaluate true
 
-# Override the model used for evaluations (default: claude-sonnet-4-6)
+# LLM provider: "anthropic" (default) or "openai"
+openclaw config set plugins.entries.openclown.config.provider openai
+
+# Custom base URL for OpenAI-compatible services
+openclaw config set plugins.entries.openclown.config.baseUrl https://api.groq.com/openai/v1
+
+# Override the model used for evaluations
 openclaw config set plugins.entries.openclown.config.model claude-haiku-4-5-20251001
 
 # Max transcript tokens sent to evaluators (default: 4000)

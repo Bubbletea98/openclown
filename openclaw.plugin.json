@@ -9,10 +9,13 @@
     "properties": {
       "enabled": { "type": "boolean" },
       "autoEvaluate": { "type": "boolean" },
+      "provider": { "type": "string", "enum": ["anthropic", "openai"] },
       "model": { "type": "string" },
+      "baseUrl": { "type": "string" },
       "maxTranscriptTokens": { "type": "number" },
       "tagStyle": { "type": "string" },
-      "anthropicApiKey": { "type": "string" }
+      "anthropicApiKey": { "type": "string" },
+      "openaiApiKey": { "type": "string" }
     }
   }
 }

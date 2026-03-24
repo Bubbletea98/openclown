@@ -6,6 +6,7 @@ import { handleAgentEnd } from "./hooks/agent-end.js";
 import { handleInboundClaim } from "./hooks/inbound-claim.js";
 import { handleMessageSending } from "./hooks/message-sending.js";
 import { handleClownCommand } from "./commands/clown.js";
+import { createProvider } from "./providers/index.js";
 
 type PluginApi = {
   id: string;
@@ -31,12 +32,12 @@ type PluginApi = {
   registerHook: (
     events: string | string[],
     handler: (...args: unknown[]) => unknown,
-    opts?: { priority?: number },
+    opts?: { priority?: number; name?: string },
   ) => void;
   on: (
     hookName: string,
     handler: (...args: unknown[]) => unknown,
-    opts?: { priority?: number },
+    opts?: { priority?: number; name?: string },
   ) => void;
   pluginConfig?: Record<string, unknown>;
   config: Record<string, unknown>;
@@ -48,82 +49,6 @@ type PluginApi = {
   };
 };
 
-function createLlmCaller(api: PluginApi, pluginConfig: Record<string, unknown> | undefined) {
-  return async (systemPrompt: string, userPrompt: string): Promise<string> => {
-    api.logger.info("LLM call: resolving API key...");
-
-    // Read API key from plugin config, then env var, then runtime auth
-    let apiKey: string | undefined;
-
-    // 1. Plugin config (set via: openclaw config set plugins.entries.openclown.config.anthropicApiKey <key>)
-    apiKey = pluginConfig?.anthropicApiKey as string | undefined;
-
-    // 2. Environment variable
-    if (!apiKey) {
-      apiKey = process.env.ANTHROPIC_API_KEY;
-    }
-
-    // 3. Runtime auth (may not work in command context)
-    if (!apiKey) {
-      try {
-        const auth = await api.runtime.modelAuth.resolveApiKeyForProvider({
-          provider: "anthropic",
-          cfg: api.config,
-        });
-        apiKey = auth?.apiKey;
-      } catch {
-        // Not available in command context
-      }
-    }
-
-    if (!apiKey) {
-      throw new Error(
-        "No Anthropic API key found. Set one of:\n" +
-        "  1. Environment variable: export ANTHROPIC_API_KEY=sk-...\n" +
-        "  2. Plugin config: openclaw config set plugins.entries.openclown.config.anthropicApiKey sk-..."
-      );
-    }
-
-    api.logger.info("LLM call: calling Anthropic API directly...");
-
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "content-type": "application/json",
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: (pluginConfig?.model as string) || "claude-sonnet-4-6",
-        max_tokens: 2048,
-        system: systemPrompt,
-        messages: [{ role: "user", content: userPrompt }],
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Anthropic API error (${response.status}): ${errorText.slice(0, 200)}`);
-    }
-
-    const result = (await response.json()) as {
-      content: Array<{ type: string; text?: string }>;
-    };
-
-    const text = result.content
-      ?.filter((block) => block.type === "text" && block.text)
-      .map((block) => block.text)
-      .join("\n");
-
-    if (!text) {
-      throw new Error("Empty response from Anthropic API");
-    }
-
-    api.logger.info(`LLM call: got ${text.length} chars response`);
-    return text;
-  };
-}
-
 export default {
   id: "openclown",
   name: "OpenClown",
@@ -131,7 +56,8 @@ export default {
 
   register(api: PluginApi) {
     const logger = api.logger;
-    const llmCall = createLlmCaller(api, api.pluginConfig);
+    const provider = createProvider(api, api.pluginConfig);
+    const llmCall = provider.call;
 
     logger.info("OpenClown circus is setting up 🎪");
 
