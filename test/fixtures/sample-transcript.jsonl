@@ -1,0 +1,5 @@
+{"type":"session","version":1,"id":"test-session-001","timestamp":"2026-03-20T10:00:00.000Z","cwd":"/home/user"}
+{"type":"message","id":"msg-1","message":{"role":"user","content":"给我找top 3高分餐厅，离我500米以内的"}}
+{"type":"message","id":"msg-2","message":{"role":"assistant","content":[{"type":"tool_use","name":"web_search","input":{"query":"top rated restaurants near me within 500m"}}]}}
+{"type":"message","id":"msg-3","message":{"role":"tool","content":"Search results: 1. 鼎泰丰 (4.8★) 300m, 2. 海底捞 (4.7★) 450m, 3. 小龙坎 (4.6★) 200m"}}
+{"type":"message","id":"msg-4","message":{"role":"assistant","content":"这是附近500米内Top 3高分餐厅：\n1. 鼎泰丰 (4.8⭐) - 距离300m\n2. 海底捞 (4.7⭐) - 距离450m\n3. 小龙坎 (4.6⭐) - 距离200m"}}

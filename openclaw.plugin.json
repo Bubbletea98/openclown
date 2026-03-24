@@ -1,0 +1,18 @@
+{
+  "id": "openclown",
+  "name": "OpenClown",
+  "description": "Multi-perspective AI task evaluation circus",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": { "type": "boolean" },
+      "autoEvaluate": { "type": "boolean" },
+      "model": { "type": "string" },
+      "maxTranscriptTokens": { "type": "number" },
+      "tagStyle": { "type": "string" },
+      "anthropicApiKey": { "type": "string" }
+    }
+  }
+}

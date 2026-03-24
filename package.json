@@ -1,0 +1,39 @@
+{
+  "name": "openclown",
+  "version": "0.1.0",
+  "description": "Multi-perspective AI task evaluation circus for OpenClaw",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "tsc --noEmit",
+    "format": "prettier --check src/ test/",
+    "format:fix": "prettier --write src/ test/"
+  },
+  "openclaw": {
+    "extensions": ["./src/index.ts"]
+  },
+  "keywords": ["openclaw", "plugin", "evaluation", "ai", "circus"],
+  "files": ["dist", "skills", "openclaw.plugin.json"],
+  "license": "MIT",
+  "peerDependencies": {
+    "openclaw": "*"
+  },
+  "devDependencies": {
+    "openclaw": "*",
+    "tsup": "^8.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0",
+    "prettier": "^3.0.0"
+  }
+}
