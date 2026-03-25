@@ -5,17 +5,14 @@
   "version": "0.1.0",
   "configSchema": {
     "type": "object",
-    "additionalProperties": false,
+    "additionalProperties": true,
     "properties": {
       "enabled": { "type": "boolean" },
       "autoEvaluate": { "type": "boolean" },
-      "provider": { "type": "string", "enum": ["anthropic", "openai"] },
+      "provider": { "type": "string" },
       "model": { "type": "string" },
-      "baseUrl": { "type": "string" },
       "maxTranscriptTokens": { "type": "number" },
-      "tagStyle": { "type": "string" },
-      "anthropicApiKey": { "type": "string" },
-      "openaiApiKey": { "type": "string" }
+      "tagStyle": { "type": "string" }
     }
   }
 }

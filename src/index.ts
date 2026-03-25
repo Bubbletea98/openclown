@@ -6,20 +6,15 @@ import { handleAgentEnd } from "./hooks/agent-end.js";
 import { handleInboundClaim } from "./hooks/inbound-claim.js";
 import { handleMessageSending } from "./hooks/message-sending.js";
 import { handleClownCommand } from "./commands/clown.js";
-import { createProvider } from "./providers/index.js";
+import { createLlmCaller } from "./providers/index.js";
 
 type PluginApi = {
   id: string;
   runtime: {
     subagent: {
       run: (params: Record<string, unknown>) => Promise<{ runId: string }>;
-      waitForRun: (params: Record<string, unknown>) => Promise<{ messages?: unknown[] }>;
-    };
-    modelAuth: {
-      resolveApiKeyForProvider: (params: {
-        provider: string;
-        cfg: Record<string, unknown>;
-      }) => Promise<{ apiKey?: string } | null>;
+      waitForRun: (params: Record<string, unknown>) => Promise<{ status: string; error?: string }>;
+      getSessionMessages: (params: Record<string, unknown>) => Promise<{ messages: unknown[] }>;
     };
   };
   registerCommand: (command: {
@@ -56,8 +51,7 @@ export default {
 
   register(api: PluginApi) {
     const logger = api.logger;
-    const provider = createProvider(api, api.pluginConfig);
-    const llmCall = provider.call;
+    const llmCall = createLlmCaller(api.runtime.subagent, logger, api.pluginConfig);
 
     logger.info("OpenClown circus is setting up 🎪");
 

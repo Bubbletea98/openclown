@@ -1,13 +1,21 @@
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import type { Performer, Circus } from "./types.js";
-import { loadSkills, skillToPerformer, resolveSkillsDir } from "./skill-loader.js";
+import {
+  loadSkills,
+  loadUserSkills,
+  skillToPerformer,
+  resolveSkillsDir,
+  isUserSkill,
+  parseSkillMd,
+  USER_SKILLS_DIR,
+} from "./skill-loader.js";
 
-// --- Load skills from SKILL.md files ---
+// --- Load skills from both built-in and user directories ---
 
-const skillsDir = resolveSkillsDir();
-const loadedSkills = loadSkills(skillsDir);
+const builtinSkillsDir = resolveSkillsDir();
+let loadedSkills = [...loadSkills(builtinSkillsDir), ...loadUserSkills()];
 
 // --- Persistence ---
 
@@ -62,6 +70,12 @@ export let ALL_PERFORMERS: Performer[] = loadedSkills.map((s) => skillToPerforme
 
 export function refreshPerformerNames(): void {
   ALL_PERFORMERS = loadedSkills.map((s) => skillToPerformer(s, detectedLang));
+}
+
+/** Reload skills from both built-in and user directories. */
+function reloadAllSkills(): void {
+  loadedSkills = [...loadSkills(builtinSkillsDir), ...loadUserSkills()];
+  refreshPerformerNames();
 }
 
 // --- Circus state (with persistence) ---
@@ -142,6 +156,61 @@ export function isPerformerEnabled(id: string): boolean {
   return enabledIds.has(id);
 }
 
+// --- Custom performer management ---
+
+/**
+ * Save a custom performer SKILL.md to the user directory, reload, and enable.
+ * Returns the parsed performer or null if the content is invalid.
+ */
+export function addCustomPerformer(skillMdContent: string): Performer | null {
+  const parsed = parseSkillMd(skillMdContent);
+  if (!parsed) return null;
+
+  // Check for ID collision with built-in
+  const builtinSkills = loadSkills(builtinSkillsDir);
+  if (builtinSkills.some((s) => s.id === parsed.id)) {
+    return null; // Can't override built-in
+  }
+
+  // Save to user directory
+  const skillDir = join(USER_SKILLS_DIR, parsed.id);
+  mkdirSync(skillDir, { recursive: true });
+  writeFileSync(join(skillDir, "SKILL.md"), skillMdContent, "utf-8");
+
+  // Reload and enable
+  reloadAllSkills();
+  enablePerformers(parsed.id);
+
+  return ALL_PERFORMERS.find((p) => p.id === parsed.id) ?? null;
+}
+
+/**
+ * Permanently delete a custom performer.
+ * Returns true if deleted, false if not found or is a built-in skill.
+ */
+export function deleteCustomPerformer(id: string): { success: boolean; reason?: string } {
+  if (!isUserSkill(id)) {
+    const isBuiltin = ALL_PERFORMERS.some((p) => p.id === id);
+    if (isBuiltin) {
+      return { success: false, reason: "builtin" };
+    }
+    return { success: false, reason: "not-found" };
+  }
+
+  // Remove from enabled set
+  enabledIds.delete(id);
+  save();
+
+  // Delete from disk
+  const skillDir = join(USER_SKILLS_DIR, id);
+  rmSync(skillDir, { recursive: true, force: true });
+
+  // Reload
+  reloadAllSkills();
+
+  return { success: true };
+}
+
 export const DEFAULT_CIRCUS: Circus = {
   performers: loadedSkills
     .filter((s) => DEFAULT_ENABLED_IDS.includes(s.id))
@@ -150,10 +219,10 @@ export const DEFAULT_CIRCUS: Circus = {
 
 // Log what was loaded
 if (loadedSkills.length > 0) {
-  console.log(`[openclown] Loaded ${loadedSkills.length} performer skills from ${skillsDir}`);
+  console.log(`[openclown] Loaded ${loadedSkills.length} performer skills from ${builtinSkillsDir}`);
   if (persisted) {
     console.log(`[openclown] Restored circus config: ${[...enabledIds].join(", ")}`);
   }
 } else {
-  console.warn(`[openclown] No skills found in ${skillsDir}, using empty circus`);
+  console.warn(`[openclown] No skills found in ${builtinSkillsDir}, using empty circus`);
 }

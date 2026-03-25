@@ -62,47 +62,39 @@ Or install manually from npm:
 npm install openclown
 ```
 
-### Step 2: Configure your LLM provider
+### Step 2: That's it — no extra setup needed
 
-OpenClown supports multiple LLM providers. By default it uses **Anthropic (Claude)**, but you can switch to **OpenAI** or any **OpenAI-compatible** service.
+When you first installed OpenClaw (`npm install -g openclaw@latest`), you went through an interactive setup that configured your LLM API keys:
 
-#### Anthropic (default)
-
-```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+```
+◇ Set ANTHROPIC_API_KEY?
+│ Yes
+│
+◇ Enter ANTHROPIC_API_KEY:
+│ sk-ant-...
 ```
 
-Or via plugin config:
+**OpenClown automatically reuses that configuration.** It picks up the LLM provider and API key you already set up in OpenClaw — no duplicate setup, no extra keys to manage.
+
+Skip to [Step 3](#step-3-verify-the-setup) to verify.
+
+### Step 2b (optional): Use a different provider or model
+
+OpenClown uses OpenClaw's subagent runtime, so it automatically works with whatever LLM you configured in OpenClaw. But if you want evaluations to use a **different** provider or model — for example, a cheaper model:
 
 ```bash
-openclaw config set plugins.entries.openclown.config.anthropicApiKey sk-ant-...
-```
+# Use a different model (same provider)
+openclaw config set plugins.entries.openclown.config.model gpt-4o-mini
 
-Anthropic also supports OpenClaw's built-in model auth — if you've already configured Anthropic as a provider in OpenClaw, it will be used automatically.
-
-#### OpenAI
-
-```bash
+# Use a completely different provider
 openclaw config set plugins.entries.openclown.config.provider openai
-export OPENAI_API_KEY=sk-...
+
+# Use a specific provider + model combo
+openclaw config set plugins.entries.openclown.config.provider anthropic
+openclaw config set plugins.entries.openclown.config.model claude-haiku-4-5-20251001
 ```
 
-#### OpenAI-compatible services (Groq, Together, Ollama, LM Studio, etc.)
-
-Any service that exposes an OpenAI-compatible Chat Completions endpoint works:
-
-```bash
-# Groq
-openclaw config set plugins.entries.openclown.config.provider openai
-openclaw config set plugins.entries.openclown.config.baseUrl https://api.groq.com/openai/v1
-openclaw config set plugins.entries.openclown.config.openaiApiKey gsk_...
-openclaw config set plugins.entries.openclown.config.model llama-3.3-70b-versatile
-
-# Ollama (local — no API key needed)
-openclaw config set plugins.entries.openclown.config.provider openai
-openclaw config set plugins.entries.openclown.config.baseUrl http://localhost:11434/v1
-openclaw config set plugins.entries.openclown.config.model llama3
-```
+These overrides are passed to OpenClaw's runtime, which handles the API keys and provider details. No separate keys to manage.
 
 ### Step 3: Verify the setup
 
@@ -129,22 +121,13 @@ Your performer selection is persisted to `~/.openclaw/openclown/circus.json` and
 
 ### Step 5 (optional): Configure the evaluation model
 
-The default model depends on your provider:
-
-| Provider | Default Model |
-|----------|--------------|
-| `anthropic` | `claude-sonnet-4-6` |
-| `openai` | `gpt-4o` |
-
-Override with any model your provider supports:
+By default, OpenClown uses the same model as your OpenClaw setup. To override:
 
 ```bash
-# Anthropic — use a faster model
 openclaw config set plugins.entries.openclown.config.model claude-haiku-4-5-20251001
-
-# OpenAI — use a cheaper model
-openclaw config set plugins.entries.openclown.config.model gpt-4o-mini
 ```
+
+This works with any model your OpenClaw provider supports.
 
 ## Quick start
 
@@ -171,14 +154,13 @@ openclaw config set plugins.entries.openclown.config.model gpt-4o-mini
 
 Ask your AI assistant to complete a task, then evaluate it:
 
-```
-You:     Find me the best coffee shops in downtown Seattle
-OpenClaw: Here are the top 5 coffee shops... [🎪 #1]
+![User asks OpenClaw for a restaurant recommendation](docs/screenshots/01-ask0-and-response.JPG)
 
-You:     /clown
-```
+Then type `/clown` to get a multi-perspective evaluation:
 
-> **Screenshot needed:** A screenshot of a `/clown` evaluation output showing all three default performers (Philosopher, Security Expert, Developer) critiquing a real task response.
+![OpenClown evaluation result — part 1](docs/screenshots/02-clown-evaluation-1.JPG)
+![OpenClown evaluation result — part 2](docs/screenshots/02-clown-evaluation-2.JPG)
+![OpenClown evaluation result — part 3](docs/screenshots/02-clown-evaluation-3.JPG)
 
 ### Evaluate a specific response
 
@@ -341,7 +323,7 @@ OpenClaw: 🎪 Encore — Improved Response
          Here are the top 5 coffee shops (using neighborhood-level location)...
 ```
 
-> **Screenshot needed:** A side-by-side or sequential screenshot showing the original response, the `/clown` evaluation, and the `/clown encore` improved response.
+![OpenClown encore — improved response with feedback applied](docs/screenshots/03-clown-encore.JPG)
 
 ### Managing your circus
 
@@ -405,6 +387,40 @@ OpenClaw: 🎪 Circus reset to defaults: philosopher, security, developer.
 
 Your lineup is saved to `~/.openclaw/openclown/circus.json` and persists across restarts.
 
+**Create a custom performer** — describe what you want and OpenClown generates it:
+
+```
+You:     /clown circus create A maritime law expert who evaluates
+         responses for legal accuracy around shipping regulations
+
+OpenClaw: 🎪 New Performer Created!
+         ⚖️ Maritime Law Expert [maritime]
+
+         Preview:
+         ---
+         id: maritime
+         names:
+           en: Maritime Law Expert
+         emoji: "⚖️"
+         severity: warning
+         ...
+
+         ✅ Saved and enabled.
+         Use /clown circus remove maritime to disable.
+         Use /clown circus delete maritime to permanently remove.
+```
+
+Custom performers are saved to `~/.openclaw/openclown/skills/` and work exactly like built-in ones.
+
+**Permanently delete a custom performer:**
+
+```
+You:     /clown circus delete maritime
+OpenClaw: 🗑️ ⚖️ Maritime Law Expert permanently removed.
+```
+
+Only custom performers can be deleted. Built-in performers can only be disabled with `/clown circus remove`.
+
 > **Screenshot needed:** A screenshot of the `/clown circus` numbered list showing a mix of enabled/disabled performers.
 
 ## Performers
@@ -442,7 +458,13 @@ Toggle performers with `/clown circus`:
 
 ## Creating custom performers
 
-Add a new directory under `skills/` with a `SKILL.md` file. That's it — OpenClown auto-discovers it on next load.
+**The easy way** — let OpenClown generate one for you:
+
+```
+/clown circus create A data privacy officer who checks for GDPR compliance issues
+```
+
+**The manual way** — add a new directory under `skills/` (or `~/.openclaw/openclown/skills/` for user-level) with a `SKILL.md` file. OpenClown auto-discovers it on next load.
 
 ```
 skills/
@@ -495,13 +517,10 @@ openclaw config set plugins.entries.openclown.config.enabled true
 # Auto-evaluate after every task (default: false)
 openclaw config set plugins.entries.openclown.config.autoEvaluate true
 
-# LLM provider: "anthropic" (default) or "openai"
+# Override the LLM provider (default: uses OpenClaw's configured provider)
 openclaw config set plugins.entries.openclown.config.provider openai
 
-# Custom base URL for OpenAI-compatible services
-openclaw config set plugins.entries.openclown.config.baseUrl https://api.groq.com/openai/v1
-
-# Override the model used for evaluations
+# Override the model used for evaluations (default: uses OpenClaw's configured model)
 openclaw config set plugins.entries.openclown.config.model claude-haiku-4-5-20251001
 
 # Max transcript tokens sent to evaluators (default: 4000)

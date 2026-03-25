@@ -1,6 +1,7 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
+import { homedir } from "node:os";
 import type { Performer, SeverityLevel } from "./types.js";
 
 type SkillMeta = {
@@ -133,8 +134,34 @@ export function skillToPerformer(skill: LoadedSkill, lang: string): Performer {
   };
 }
 
+/** Directory for user-created custom skills. */
+export const USER_SKILLS_DIR = join(homedir(), ".openclaw", "openclown", "skills");
+
 /**
- * Resolve the skills directory path.
+ * Load user-created skills from ~/.openclaw/openclown/skills/.
+ */
+export function loadUserSkills(): LoadedSkill[] {
+  return loadSkills(USER_SKILLS_DIR);
+}
+
+/**
+ * Check if a skill ID exists in the user skills directory.
+ */
+export function isUserSkill(id: string): boolean {
+  const skillPath = join(USER_SKILLS_DIR, id, "SKILL.md");
+  return existsSync(skillPath);
+}
+
+/**
+ * Parse a SKILL.md string into a LoadedSkill. Returns null if invalid.
+ * Exported for use by the create command.
+ */
+export function parseSkillMd(raw: string): LoadedSkill | null {
+  return parseSkillFile(raw);
+}
+
+/**
+ * Resolve the built-in skills directory path.
  * In dev: <repo>/skills/
  * In dist: <package>/skills/ (shipped alongside dist/)
  */

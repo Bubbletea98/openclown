@@ -18,7 +18,11 @@ import {
   detectLanguage,
   setDetectedLanguage,
   refreshPerformerNames,
+  addCustomPerformer,
+  deleteCustomPerformer,
 } from "../circus/defaults.js";
+import { isUserSkill } from "../circus/skill-loader.js";
+import { GENERATOR_SYSTEM_PROMPT } from "../circus/generator-prompt.js";
 import { createSerialEngine, type LlmCaller } from "../circus/engine.js";
 import { formatEvaluation } from "../output/formatter.js";
 import type { EvaluationResult } from "../circus/types.js";
@@ -66,7 +70,7 @@ export async function handleClownCommand(
 
   // Sub-commands
   if (args.startsWith("circus")) {
-    return handleCircusSubcommand(args.slice(6).trim());
+    return handleCircusSubcommand(args.slice(6).trim(), llmCall, logger);
   }
 
   if (args === "encore" || args.startsWith("encore ")) {
@@ -89,6 +93,8 @@ export async function handleClownCommand(
         "/clown circus — manage your performer lineup",
         "/clown circus add <id> — enable a performer",
         "/clown circus remove <id> — disable a performer",
+        "/clown circus create <desc> — create a custom performer",
+        "/clown circus delete <id> — permanently remove a custom performer",
         "/clown circus reset — restore defaults",
         "/clown help — show this message",
         "",
@@ -265,7 +271,11 @@ ${lastExchange.assistantResponse}`;
  * /clown circus toggle 1,3,5               — toggle by number from list
  * /clown circus reset                      — restore defaults
  */
-function handleCircusSubcommand(args: string): CommandResult {
+async function handleCircusSubcommand(
+  args: string,
+  llmCall: LlmCaller,
+  logger: Logger,
+): Promise<CommandResult> {
   const parts = args.trim().split(/\s+/);
   const subCmd = parts[0] ?? "";
   const targets = parts.slice(1);
@@ -276,7 +286,8 @@ function handleCircusSubcommand(args: string): CommandResult {
     ALL_PERFORMERS.forEach((p, i) => {
       const num = i + 1;
       const check = isPerformerEnabled(p.id) ? "✅" : "⬜";
-      lines.push(`${check} ${num}. ${p.emoji} ${p.name}  [${p.id}]`);
+      const custom = isUserSkill(p.id) ? " (custom)" : "";
+      lines.push(`${check} ${num}. ${p.emoji} ${p.name}  [${p.id}]${custom}`);
     });
     lines.push("");
     lines.push("━━━━━━━━━━━━━━━━━━━━━━");
@@ -287,6 +298,8 @@ function handleCircusSubcommand(args: string): CommandResult {
     lines.push("  /clown circus add comedian grandparents");
     lines.push("  /clown circus remove philosopher security");
     lines.push("");
+    lines.push("/clown circus create <description> — create a custom performer");
+    lines.push("/clown circus delete <id> — permanently remove a custom performer");
     lines.push("/clown circus reset — restore defaults");
     return { text: lines.join("\n") };
   }
@@ -374,5 +387,80 @@ function handleCircusSubcommand(args: string): CommandResult {
     return { text: "🎪 Circus reset to defaults: philosopher, security, developer.\nConfig saved." };
   }
 
-  return { text: `🎪 Unknown: /clown circus ${subCmd}\nTry: /clown circus, add, remove, toggle, reset` };
+  // /clown circus create <description>
+  if (subCmd === "create") {
+    const description = targets.join(" ").trim();
+    if (!description) {
+      return {
+        text: "🎪 Usage: /clown circus create <description>\n\nExample:\n/clown circus create A maritime law expert who evaluates responses for legal accuracy around shipping regulations",
+      };
+    }
+
+    logger.info(`/clown circus create: generating performer from "${description.slice(0, 60)}..."`);
+
+    try {
+      const skillMd = await llmCall(
+        GENERATOR_SYSTEM_PROMPT,
+        `Create an evaluator performer based on this description:\n\n${description}`,
+      );
+
+      // Clean up LLM response — remove code fences if present
+      const cleaned = skillMd
+        .replace(/^```(?:markdown|md)?\s*\n?/m, "")
+        .replace(/\n?```\s*$/m, "")
+        .trim();
+
+      const performer = addCustomPerformer(cleaned);
+      if (!performer) {
+        return {
+          text: "🎪 Failed to create performer — the generated SKILL.md was invalid or the ID conflicts with a built-in performer. Try again with a different description.",
+        };
+      }
+
+      const lines = [
+        "🎪 New Performer Created!",
+        `${performer.emoji} ${performer.name} [${performer.id}]`,
+        "",
+        "Preview:",
+        cleaned.split("\n").slice(0, 15).join("\n"),
+        cleaned.split("\n").length > 15 ? "..." : "",
+        "",
+        `✅ Saved and enabled.`,
+        `Use /clown circus remove ${performer.id} to disable.`,
+        `Use /clown circus delete ${performer.id} to permanently remove.`,
+      ];
+
+      return { text: lines.join("\n") };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.info(`/clown circus create: failed: ${msg}`);
+      return { text: `🎪 Failed to create performer: ${msg}` };
+    }
+  }
+
+  // /clown circus delete <id>
+  if (subCmd === "delete") {
+    const id = targets[0];
+    if (!id) {
+      return { text: "🎪 Usage: /clown circus delete <id>\nOnly custom performers can be deleted." };
+    }
+
+    const performer = ALL_PERFORMERS.find((p) => p.id === id);
+    const result = deleteCustomPerformer(id);
+
+    if (!result.success) {
+      if (result.reason === "builtin") {
+        return {
+          text: `🎪 Can't delete built-in performer "${id}". Use /clown circus remove ${id} to disable it instead.`,
+        };
+      }
+      return { text: `🎪 Custom performer "${id}" not found. Use /clown circus to see all performers.` };
+    }
+
+    return {
+      text: `🗑️ ${performer?.emoji ?? "🎪"} ${performer?.name ?? id} permanently removed.`,
+    };
+  }
+
+  return { text: `🎪 Unknown: /clown circus ${subCmd}\nTry: /clown circus, add, remove, toggle, create, delete, reset` };
 }
