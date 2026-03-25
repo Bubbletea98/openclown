@@ -154,13 +154,13 @@ This works with any model your OpenClaw provider supports.
 
 Ask your AI assistant to complete a task, then evaluate it:
 
-![User asks OpenClaw for a restaurant recommendation](docs/screenshots/01-ask0-and-response.JPG)
+<img src="docs/screenshots/01-ask0-and-response.JPG" width="300" alt="User asks OpenClaw for a restaurant recommendation">
 
 Then type `/clown` to get a multi-perspective evaluation:
 
-![OpenClown evaluation result — part 1](docs/screenshots/02-clown-evaluation-1.JPG)
-![OpenClown evaluation result — part 2](docs/screenshots/02-clown-evaluation-2.JPG)
-![OpenClown evaluation result — part 3](docs/screenshots/02-clown-evaluation-3.JPG)
+<img src="docs/screenshots/02-clown-evaluation-1.JPG" width="300" alt="OpenClown evaluation result — part 1">
+<img src="docs/screenshots/02-clown-evaluation-2.JPG" width="300" alt="OpenClown evaluation result — part 2">
+<img src="docs/screenshots/02-clown-evaluation-3.JPG" width="300" alt="OpenClown evaluation result — part 3">
 
 ### Evaluate a specific response
 
@@ -323,7 +323,7 @@ OpenClaw: 🎪 Encore — Improved Response
          Here are the top 5 coffee shops (using neighborhood-level location)...
 ```
 
-![OpenClown encore — improved response with feedback applied](docs/screenshots/03-clown-encore.JPG)
+<img src="docs/screenshots/03-clown-encore.JPG" width="300" alt="OpenClown encore — improved response with feedback applied">
 
 ### Managing your circus
 
