@@ -176,11 +176,6 @@ OpenClown works anywhere OpenClaw does — WhatsApp, Telegram, Slack, Discord, o
 
 ### Other ways to target a response
 
-**By reference number** — evaluate a specific response:
-
-```
-/clown #3
-```
 
 **By keyword** — search and evaluate:
 
