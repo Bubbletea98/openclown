@@ -141,150 +141,57 @@ This works with any model your OpenClaw provider supports.
 # Fuzzy search by keyword
 /clown restaurant
 
-# Manage your circus lineup
-/clown circus
-
 # Re-run the original task with evaluation feedback
 /clown encore
+
+# Manage your circus lineup
+/clown circus
+/clown circus add comedian
+/clown circus remove philosopher
+/clown circus toggle 1,3,5
+
+# Create, edit, and delete custom performers
+/clown circus create A food safety inspector who checks nutrition claims
+/clown circus edit philosopher Make it focus on ethical assumptions
+/clown circus delete <id>
 ```
 
 ## Usage examples
 
-### Basic evaluation
+OpenClown works anywhere OpenClaw does — WhatsApp, Telegram, Slack, Discord, or CLI.
 
-Ask your AI assistant to complete a task, then evaluate it:
+### Ask a question, then evaluate
 
-<img src="docs/screenshots/01-ask0-and-response.JPG" width="300" alt="User asks OpenClaw for a restaurant recommendation">
+<img src="docs/screenshots/01-ask0-and-response.JPG" width="300" alt="User asks OpenClaw for a restaurant recommendation on WhatsApp">
 
-Then type `/clown` to get a multi-perspective evaluation:
+### `/clown` — multi-perspective evaluation
 
-<img src="docs/screenshots/02-clown-evaluation-1.JPG" width="300" alt="OpenClown evaluation result — part 1">
-<img src="docs/screenshots/02-clown-evaluation-2.JPG" width="300" alt="OpenClown evaluation result — part 2">
-<img src="docs/screenshots/02-clown-evaluation-3.JPG" width="300" alt="OpenClown evaluation result — part 3">
+<img src="docs/screenshots/02-clown-evaluation-1.JPG" width="300" alt="OpenClown evaluation — part 1">
+<img src="docs/screenshots/02-clown-evaluation-2.JPG" width="300" alt="OpenClown evaluation — part 2">
+<img src="docs/screenshots/02-clown-evaluation-3.JPG" width="300" alt="OpenClown evaluation — part 3">
 
-### Evaluate a specific response
+### `/clown encore` — improved response with feedback applied
 
-When you have multiple exchanges, target one by its reference number:
+<img src="docs/screenshots/03-clown-encore.JPG" width="300" alt="OpenClown encore — improved response">
 
-```
-You:     What's the weather in Tokyo?
-OpenClaw: Currently 18°C and partly cloudy... [🎪 #3]
+### Other ways to target a response
 
-You:     Translate this email to French
-OpenClaw: Voici la traduction... [🎪 #4]
-
-You:     /clown #3
-         → evaluates the weather response, not the translation
-```
-
-### WhatsApp example — full interaction
-
-OpenClown works anywhere OpenClaw does, including WhatsApp. Here's what a typical session looks like:
+**By reference number** — evaluate a specific response:
 
 ```
-┌─────────────────────────────────────┐
-│            WhatsApp Chat            │
-├─────────────────────────────────────┤
-│                                     │
-│  You:                          ◄──┐ │
-│  Find me a good sushi place        │ │
-│  near Shibuya for tonight          │ │
-│                                     │
-│  ┌─────────────────────────────┐   │ │
-│  │ OpenClaw:                   │   │ │
-│  │ Here are 3 top-rated sushi  │   │ │
-│  │ restaurants near Shibuya:   │   │ │
-│  │                             │   │ │
-│  │ 1. Sushi Saito — omakase,  │   │ │
-│  │    ¥15,000+, reservations  │   │ │
-│  │    required 1 month ahead  │   │ │
-│  │ 2. Genki Sushi — conveyor  │   │ │
-│  │    belt, budget-friendly   │   │ │
-│  │ 3. Sushi no Midori — long  │   │ │
-│  │    queues but worth it     │   │ │
-│  │                    [🎪 #1] │   │ │
-│  └─────────────────────────────┘   │ │
-│                                     │
-│  You:                               │
-│  /clown                             │
-│                                     │
-│  ┌─────────────────────────────┐   │ │
-│  │ OpenClaw:                   │   │ │
-│  │ 🎪 OpenClown Evaluation     │   │ │
-│  │ ━━━━━━━━━━━━━━━━━━━━━━━━   │   │ │
-│  │                             │   │ │
-│  │ 📋 "Find me a good sushi   │   │ │
-│  │    place near Shibuya..."   │   │ │
-│  │                             │   │ │
-│  │ 🎭 Philosopher              │   │ │
-│  │ "Good" is doing heavy      │   │ │
-│  │ lifting here — the list    │   │ │
-│  │ mixes a ¥15k omakase with  │   │ │
-│  │ a conveyor belt chain      │   │ │
-│  │ without asking about       │   │ │
-│  │ budget or occasion.        │   │ │
-│  │ Severity: 💡 Insight       │   │ │
-│  │                             │   │ │
-│  │ 🔒 Security Expert          │   │ │
-│  │ The search query likely     │   │ │
-│  │ included precise GPS       │   │ │
-│  │ coordinates. "Near         │   │ │
-│  │ Shibuya" is enough —       │   │ │
-│  │ exact lat/lng should not   │   │ │
-│  │ be sent to a third-party   │   │ │
-│  │ search API.                │   │ │
-│  │ Severity: ⚠️ Warning       │   │ │
-│  │                             │   │ │
-│  │ 💻 Developer                │   │ │
-│  │ Sushi Saito requires       │   │ │
-│  │ reservations 1 month       │   │ │
-│  │ ahead — recommending it    │   │ │
-│  │ for "tonight" is a dead    │   │ │
-│  │ end. Should filter by      │   │ │
-│  │ same-day availability.     │   │ │
-│  │ Severity: 🔴 Critical      │   │ │
-│  │                             │   │ │
-│  │ ━━━━━━━━━━━━━━━━━━━━━━━━   │   │ │
-│  └─────────────────────────────┘   │ │
-│                                     │
-│  You:                               │
-│  /clown encore                      │
-│                                     │
-│  ┌─────────────────────────────┐   │ │
-│  │ OpenClaw:                   │   │ │
-│  │ 🎪 Encore — Improved        │   │ │
-│  │                             │   │ │
-│  │ Since you said "tonight,"  │   │ │
-│  │ here are places you can    │   │ │
-│  │ actually walk into now:    │   │ │
-│  │                             │   │ │
-│  │ 1. Sushi no Midori         │   │ │
-│  │    Walk-in OK, ~30min wait │   │ │
-│  │    ¥3,000–5,000/person     │   │ │
-│  │ 2. Genki Sushi             │   │ │
-│  │    No wait, ¥1,000–2,000   │   │ │
-│  │ 3. Katsu Midori            │   │ │
-│  │    Walk-in OK, ¥4,000–6,000│   │ │
-│  │                    [🎪 #2] │   │ │
-│  └─────────────────────────────┘   │ │
-│                                     │
-└─────────────────────────────────────┘
+/clown #3
 ```
 
-This works on any messaging channel — WhatsApp, Telegram, Slack, Discord. On mobile, you can also **reply to a specific message** to target it:
+**By keyword** — search and evaluate:
 
 ```
-You:     [Reply to 🎪 #1] /clown
-         → evaluates exactly the message you replied to
+/clown restaurant
 ```
 
-### Keyword search
-
-Can't remember the reference number? Search by keyword:
+**By reply** (messaging channels) — reply to any AI response with `/clown`:
 
 ```
-You:     /clown sushi
-         → finds and evaluates the most recent exchange mentioning "sushi"
+[Reply to 🎪 #1] /clown
 ```
 
 ### Follow-up questions — automatic conversation context
@@ -300,30 +207,11 @@ OpenClaw: Ottawa has a growing tech scene... [🎪 #2]
 
 You:     /clown
          → evaluates #2, but evaluators also see #1 as context
-         → they understand "How about Ottawa?" means
-            "Is Ottawa good for startups?" — not a vague question
 ```
 
-This also works with `/clown encore` — the improved response is generated with full conversation context, so it knows what "How about Ottawa?" refers to.
+This also works with `/clown encore` — the improved response is generated with full conversation context.
 
 > **Screenshot needed:** A `/clown` evaluation of a short follow-up question (like "How about Ottawa?" or "What about pricing?"), where the evaluation output shows the performers understood the full context from the prior exchange rather than treating it as a vague question.
-
-### Encore — improve with feedback
-
-After an evaluation reveals issues, let the AI try again with the feedback applied:
-
-```
-You:     /clown
-OpenClaw: 🎪 OpenClown Evaluation
-         🔒 Security Expert: GPS coordinates exposed...
-         💻 Developer: No error handling for rate limits...
-
-You:     /clown encore
-OpenClaw: 🎪 Encore — Improved Response
-         Here are the top 5 coffee shops (using neighborhood-level location)...
-```
-
-<img src="docs/screenshots/03-clown-encore.JPG" width="300" alt="OpenClown encore — improved response with feedback applied">
 
 ### Managing your circus
 
@@ -387,16 +275,27 @@ OpenClaw: 🎪 Circus reset to defaults: philosopher, security, developer.
 
 Your lineup is saved to `~/.openclaw/openclown/circus.json` and persists across restarts.
 
-**Create a custom performer** — describe what you want and OpenClown generates it:
+**Create a custom performer** — a guided, multi-step flow:
 
 ```
 You:     /clown circus create A maritime law expert who evaluates
          responses for legal accuracy around shipping regulations
 
-OpenClaw: 🎪 New Performer Created!
-         ⚖️ Maritime Law Expert [maritime]
+OpenClaw: 🎪 Creating a new performer...
 
-         Preview:
+         1. What specific aspects of maritime law should this
+            evaluator focus on?
+         2. Should the evaluation style be formal/checklist-based
+            or more conversational?
+         3. How severe should findings be — advisory insights,
+            warnings, or critical errors?
+         ...
+
+You:     /clown circus create Focus on UNCLOS compliance and
+         cargo liability. Formal style. Severity: warning.
+
+OpenClaw: 🎪 Here's your performer draft:
+         ━━━━━━━━━━━━━━━━━━━━━━
          ---
          id: maritime
          names:
@@ -404,13 +303,43 @@ OpenClaw: 🎪 New Performer Created!
          emoji: "⚖️"
          severity: warning
          ...
+         ━━━━━━━━━━━━━━━━━━━━━━
 
+         /clown circus confirm — save and enable
+         /clown circus preview — see full definition
+         /clown circus create <changes> — revise
+         /clown circus cancel — discard
+
+You:     /clown circus confirm
+
+OpenClaw: 🎪 New Performer Created!
+         ⚖️ Maritime Law Expert [maritime]
          ✅ Saved and enabled.
-         Use /clown circus remove maritime to disable.
-         Use /clown circus delete maritime to permanently remove.
 ```
 
 Custom performers are saved to `~/.openclaw/openclown/skills/` and work exactly like built-in ones.
+
+**Edit an existing performer** — modify any performer's behavior:
+
+```
+You:     /clown circus edit philosopher Make it focus more on ethical assumptions
+
+OpenClaw: 🎪 Updated draft for 🎭 Philosopher:
+         ━━━━━━━━━━━━━━━━━━━━━━
+         ---
+         id: philosopher
+         ...
+         ━━━━━━━━━━━━━━━━━━━━━━
+
+         /clown circus confirm — save changes
+         /clown circus preview — see full definition
+         /clown circus edit philosopher <more changes> — revise
+         /clown circus cancel — discard
+
+You:     /clown circus confirm
+```
+
+Editing a built-in performer saves a copy to your user directory — the original is never modified.
 
 **Permanently delete a custom performer:**
 
@@ -447,13 +376,20 @@ Additional performers you can enable:
 | Grandparent | 👴 | Practicality, common sense, well-being |
 | Cat Expert | 🐱 | Efficiency, priorities, power dynamics |
 
-Toggle performers with `/clown circus`:
+Manage performers with `/clown circus`:
 
 ```bash
-/clown circus              # Show current lineup
-/clown circus add comedian # Enable a performer
-/clown circus rm investor  # Disable a performer
-/clown circus reset        # Reset to defaults
+/clown circus                    # Show current lineup
+/clown circus add comedian       # Enable a performer
+/clown circus remove investor    # Disable a performer
+/clown circus toggle 1,3,5       # Toggle by number
+/clown circus create <desc>      # Create a custom performer (guided)
+/clown circus edit <id> [changes]# Edit an existing performer
+/clown circus delete <id>        # Permanently remove a custom performer
+/clown circus preview            # View full definition of pending draft
+/clown circus confirm            # Save pending create/edit
+/clown circus cancel             # Discard pending create/edit
+/clown circus reset              # Reset to defaults
 ```
 
 ## Creating custom performers

@@ -21,8 +21,8 @@ import {
   addCustomPerformer,
   deleteCustomPerformer,
 } from "../circus/defaults.js";
-import { isUserSkill } from "../circus/skill-loader.js";
-import { GENERATOR_SYSTEM_PROMPT } from "../circus/generator-prompt.js";
+import { isUserSkill, readSkillMd } from "../circus/skill-loader.js";
+import { INTERVIEW_SYSTEM_PROMPT, GENERATOR_SYSTEM_PROMPT } from "../circus/generator-prompt.js";
 import { createSerialEngine, type LlmCaller } from "../circus/engine.js";
 import { formatEvaluation } from "../output/formatter.js";
 import type { EvaluationResult } from "../circus/types.js";
@@ -49,6 +49,94 @@ const CONVERSATION_HISTORY_COUNT = 3;
 let lastEvaluation: EvaluationResult | null = null;
 let lastExchange: CachedExchange | null = null;
 let lastPriorExchanges: CachedExchange[] = [];
+
+/**
+ * Summarize a SKILL.md draft for mobile-friendly display.
+ * Shows key fields without the full prompt body.
+ */
+function summarizeDraft(skillMd: string): string {
+  const lines = skillMd.split("\n");
+
+  let id = "";
+  let name = "";
+  let emoji = "";
+  let severity = "";
+  let category = "";
+  const examines: string[] = [];
+
+  let inFrontmatter = false;
+  let inNames = false;
+  let pastFrontmatter = false;
+
+  for (const line of lines) {
+    if (line === "---" && !inFrontmatter && !pastFrontmatter) {
+      inFrontmatter = true;
+      continue;
+    }
+    if (line === "---" && inFrontmatter) {
+      inFrontmatter = false;
+      pastFrontmatter = true;
+      continue;
+    }
+
+    if (inFrontmatter) {
+      if (inNames) {
+        const m = line.match(/^\s+(\w+):\s*(.+)/);
+        if (m) {
+          if (!name) name = m[2].replace(/^["']|["']$/g, "");
+          continue;
+        }
+        inNames = false;
+      }
+      const kv = line.match(/^(\w+):\s*(.*)/);
+      if (kv) {
+        const [, key, val] = kv;
+        const v = val.replace(/^["']|["']$/g, "").trim();
+        if (key === "id") id = v;
+        else if (key === "emoji") emoji = v;
+        else if (key === "severity") severity = v;
+        else if (key === "category") category = v;
+        else if (key === "names" && !v) inNames = true;
+      }
+    }
+
+    // Collect bullet points from "What to Examine" section (max 5)
+    if (pastFrontmatter && line.match(/^[-•]\s+/) && examines.length < 5) {
+      examines.push(line.trim());
+    }
+  }
+
+  const severityMap: Record<string, string> = {
+    insight: "💡 Insight",
+    warning: "⚠️ Warning",
+    critical: "🔴 Critical",
+  };
+
+  const result = [
+    `${emoji} ${name} [${id}]`,
+    "",
+    `Severity: ${severityMap[severity] ?? severity}`,
+    `Category: ${category || "serious"}`,
+  ];
+
+  if (examines.length > 0) {
+    result.push("", "Examines:");
+    for (const e of examines) {
+      result.push(`  ${e}`);
+    }
+  }
+
+  return result.join("\n");
+}
+
+// Create session state
+type CreateSession = {
+  phase: "interview" | "draft";
+  description: string;
+  conversation: string[]; // accumulated context
+  pendingDraft: string | null; // generated SKILL.md waiting for approval
+};
+let createSession: CreateSession | null = null;
 
 /**
  * Handle the /clown command.
@@ -94,6 +182,7 @@ export async function handleClownCommand(
         "/clown circus add <id> — enable a performer",
         "/clown circus remove <id> — disable a performer",
         "/clown circus create <desc> — create a custom performer",
+        "/clown circus edit <id> [changes] — edit an existing performer",
         "/clown circus delete <id> — permanently remove a custom performer",
         "/clown circus reset — restore defaults",
         "/clown help — show this message",
@@ -299,6 +388,7 @@ async function handleCircusSubcommand(
     lines.push("  /clown circus remove philosopher security");
     lines.push("");
     lines.push("/clown circus create <description> — create a custom performer");
+    lines.push("/clown circus edit <id> [changes] — edit an existing performer");
     lines.push("/clown circus delete <id> — permanently remove a custom performer");
     lines.push("/clown circus reset — restore defaults");
     return { text: lines.join("\n") };
@@ -387,54 +477,274 @@ async function handleCircusSubcommand(
     return { text: "🎪 Circus reset to defaults: philosopher, security, developer.\nConfig saved." };
   }
 
-  // /clown circus create <description>
+  // /clown circus create <description or reply>
   if (subCmd === "create") {
-    const description = targets.join(" ").trim();
-    if (!description) {
+    const input = targets.join(" ").trim();
+
+    // No input and no active session → show usage
+    if (!input && !createSession) {
       return {
-        text: "🎪 Usage: /clown circus create <description>\n\nExample:\n/clown circus create A maritime law expert who evaluates responses for legal accuracy around shipping regulations",
+        text: [
+          "🎪 Usage: /clown circus create <description>",
+          "",
+          "Example:",
+          "/clown circus create A maritime law expert who evaluates responses for legal accuracy around shipping regulations",
+          "",
+          "I'll ask a few follow-up questions before generating the performer.",
+        ].join("\n"),
       };
     }
 
-    logger.info(`/clown circus create: generating performer from "${description.slice(0, 60)}..."`);
-
     try {
-      const skillMd = await llmCall(
-        GENERATOR_SYSTEM_PROMPT,
-        `Create an evaluator performer based on this description:\n\n${description}`,
-      );
+      // Phase 1: New session — ask follow-up questions
+      if (!createSession) {
+        logger.info(`/clown circus create: starting interview for "${input.slice(0, 60)}..."`);
 
-      // Clean up LLM response — remove code fences if present
+        const questions = await llmCall(
+          INTERVIEW_SYSTEM_PROMPT,
+          `User wants to create this evaluator:\n\n${input}`,
+        );
+
+        createSession = {
+          phase: "interview",
+          description: input,
+          conversation: [input],
+          pendingDraft: null,
+        };
+
+        return {
+          text: [
+            "🎪 Creating a new performer...",
+            "",
+            questions,
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "Reply with /clown circus create <your answers>",
+            "Or /clown circus cancel to abort.",
+          ].join("\n"),
+        };
+      }
+
+      // Phase 2: User answered questions → generate draft
+      if (createSession.phase === "interview") {
+        logger.info(`/clown circus create: generating draft from answers`);
+
+        createSession.conversation.push(input);
+        createSession.phase = "draft";
+
+        const fullContext = [
+          `Original description: ${createSession.description}`,
+          "",
+          `Follow-up answers: ${input}`,
+        ].join("\n");
+
+        const skillMd = await llmCall(GENERATOR_SYSTEM_PROMPT, fullContext);
+
+        const cleaned = skillMd
+          .replace(/^```(?:markdown|md)?\s*\n?/m, "")
+          .replace(/\n?```\s*$/m, "")
+          .trim();
+
+        createSession.pendingDraft = cleaned;
+
+        return {
+          text: [
+            "🎪 Performer draft:",
+            "",
+            summarizeDraft(cleaned),
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "/clown circus confirm — save and enable",
+            "/clown circus preview — see full definition",
+            "/clown circus create <changes> — request changes",
+            "/clown circus cancel — discard",
+          ].join("\n"),
+        };
+      }
+
+      // Phase 3: User wants changes to draft → regenerate
+      if (createSession.phase === "draft") {
+        logger.info(`/clown circus create: regenerating draft with changes`);
+
+        createSession.conversation.push(input);
+
+        const fullContext = [
+          `Original description: ${createSession.description}`,
+          "",
+          `Previous conversation: ${createSession.conversation.slice(1, -1).join("\n")}`,
+          "",
+          `User's requested changes: ${input}`,
+          "",
+          `Previous draft that needs changes:\n${createSession.pendingDraft}`,
+        ].join("\n");
+
+        const skillMd = await llmCall(GENERATOR_SYSTEM_PROMPT, fullContext);
+
+        const cleaned = skillMd
+          .replace(/^```(?:markdown|md)?\s*\n?/m, "")
+          .replace(/\n?```\s*$/m, "")
+          .trim();
+
+        createSession.pendingDraft = cleaned;
+
+        return {
+          text: [
+            "🎪 Updated draft:",
+            "",
+            summarizeDraft(cleaned),
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━",
+            "/clown circus confirm — save and enable",
+            "/clown circus preview — see full definition",
+            "/clown circus create <more changes> — revise again",
+            "/clown circus cancel — discard",
+          ].join("\n"),
+        };
+      }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      logger.info(`/clown circus create: failed: ${msg}`);
+      createSession = null;
+      return { text: `🎪 Failed: ${msg}` };
+    }
+  }
+
+  // /clown circus confirm — save the pending draft
+  if (subCmd === "confirm") {
+    if (!createSession?.pendingDraft) {
+      return { text: "🎪 Nothing to confirm. Start with /clown circus create <description>." };
+    }
+
+    const performer = addCustomPerformer(createSession.pendingDraft);
+    createSession = null;
+
+    if (!performer) {
+      return {
+        text: "🎪 Failed to save — the draft was invalid or the ID conflicts with a built-in performer. Try /clown circus create again.",
+      };
+    }
+
+    return {
+      text: [
+        "🎪 New Performer Created!",
+        `${performer.emoji} ${performer.name} [${performer.id}]`,
+        "",
+        "✅ Saved and enabled.",
+        `Use /clown circus remove ${performer.id} to disable.`,
+        `Use /clown circus delete ${performer.id} to permanently remove.`,
+      ].join("\n"),
+    };
+  }
+
+  // /clown circus preview — show full pending draft
+  if (subCmd === "preview") {
+    if (!createSession?.pendingDraft) {
+      return { text: "🎪 Nothing to preview. Start with /clown circus create or /clown circus edit." };
+    }
+    return {
+      text: [
+        "🎪 Full definition:",
+        "",
+        createSession.pendingDraft,
+      ].join("\n"),
+    };
+  }
+
+  // /clown circus cancel — discard create session
+  if (subCmd === "cancel") {
+    if (!createSession) {
+      return { text: "🎪 Nothing to cancel." };
+    }
+    createSession = null;
+    return { text: "🎪 Performer creation cancelled." };
+  }
+
+  // /clown circus edit <id> [changes]
+  if (subCmd === "edit") {
+    const id = targets[0];
+    const changes = targets.slice(1).join(" ").trim();
+
+    if (!id) {
+      return { text: "🎪 Usage: /clown circus edit <id> [what to change]\n\nExample:\n/clown circus edit philosopher Make it focus more on ethical assumptions" };
+    }
+
+    const performer = ALL_PERFORMERS.find((p) => p.id === id);
+    if (!performer) {
+      return { text: `🎪 Performer "${id}" not found. Use /clown circus to see all performers.` };
+    }
+
+    const currentSkillMd = readSkillMd(id);
+    if (!currentSkillMd) {
+      return { text: `🎪 Could not read SKILL.md for "${id}".` };
+    }
+
+    // If no changes specified, show current and ask what to change
+    if (!changes) {
+      createSession = {
+        phase: "draft",
+        description: `Editing existing performer: ${performer.name} [${id}]`,
+        conversation: [],
+        pendingDraft: currentSkillMd,
+      };
+
+      return {
+        text: [
+          `🎪 Editing ${performer.emoji} ${performer.name} [${id}]`,
+          "",
+          "Current definition:",
+          "━━━━━━━━━━━━━━━━━━━━━━",
+          currentSkillMd,
+          "━━━━━━━━━━━━━━━━━━━━━━",
+          "",
+          "Reply with what you'd like to change:",
+          `  /clown circus edit ${id} <what to change>`,
+        ].join("\n"),
+      };
+    }
+
+    // Generate updated draft
+    try {
+      logger.info(`/clown circus edit: updating ${id} with "${changes.slice(0, 60)}..."`);
+
+      const editContext = [
+        `Current SKILL.md for performer "${performer.name}":\n${currentSkillMd}`,
+        "",
+        `User's requested changes: ${changes}`,
+        "",
+        "Generate the updated SKILL.md with these changes applied. Keep the same id.",
+      ].join("\n");
+
+      const skillMd = await llmCall(GENERATOR_SYSTEM_PROMPT, editContext);
+
       const cleaned = skillMd
         .replace(/^```(?:markdown|md)?\s*\n?/m, "")
         .replace(/\n?```\s*$/m, "")
         .trim();
 
-      const performer = addCustomPerformer(cleaned);
-      if (!performer) {
-        return {
-          text: "🎪 Failed to create performer — the generated SKILL.md was invalid or the ID conflicts with a built-in performer. Try again with a different description.",
-        };
-      }
+      createSession = {
+        phase: "draft",
+        description: `Editing performer: ${performer.name} [${id}]`,
+        conversation: [changes],
+        pendingDraft: cleaned,
+      };
 
-      const lines = [
-        "🎪 New Performer Created!",
-        `${performer.emoji} ${performer.name} [${performer.id}]`,
-        "",
-        "Preview:",
-        cleaned.split("\n").slice(0, 15).join("\n"),
-        cleaned.split("\n").length > 15 ? "..." : "",
-        "",
-        `✅ Saved and enabled.`,
-        `Use /clown circus remove ${performer.id} to disable.`,
-        `Use /clown circus delete ${performer.id} to permanently remove.`,
-      ];
-
-      return { text: lines.join("\n") };
+      return {
+        text: [
+          `🎪 Updated draft for ${performer.emoji} ${performer.name}:`,
+          "",
+          summarizeDraft(cleaned),
+          "",
+          "━━━━━━━━━━━━━━━━━━━━━━",
+          "/clown circus confirm — save changes",
+          "/clown circus preview — see full definition",
+          `/clown circus edit ${id} <more changes> — revise again`,
+          "/clown circus cancel — discard changes",
+        ].join("\n"),
+      };
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
-      logger.info(`/clown circus create: failed: ${msg}`);
-      return { text: `🎪 Failed to create performer: ${msg}` };
+      logger.info(`/clown circus edit: failed: ${msg}`);
+      return { text: `🎪 Failed to edit: ${msg}` };
     }
   }
 
@@ -462,5 +772,5 @@ async function handleCircusSubcommand(
     };
   }
 
-  return { text: `🎪 Unknown: /clown circus ${subCmd}\nTry: /clown circus, add, remove, toggle, create, delete, reset` };
+  return { text: `🎪 Unknown: /clown circus ${subCmd}\nTry: /clown circus, add, remove, toggle, create, confirm, cancel, delete, reset` };
 }

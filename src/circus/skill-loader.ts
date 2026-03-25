@@ -153,6 +153,27 @@ export function isUserSkill(id: string): boolean {
 }
 
 /**
+ * Read the raw SKILL.md content for a given skill ID.
+ * Tries user dir first, then built-in dir.
+ */
+export function readSkillMd(id: string): string | null {
+  const userPath = join(USER_SKILLS_DIR, id, "SKILL.md");
+  try {
+    return readFileSync(userPath, "utf-8");
+  } catch {
+    // Not in user dir
+  }
+
+  const builtinDir = resolveSkillsDir();
+  const builtinPath = join(builtinDir, id, "SKILL.md");
+  try {
+    return readFileSync(builtinPath, "utf-8");
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Parse a SKILL.md string into a LoadedSkill. Returns null if invalid.
  * Exported for use by the create command.
  */
