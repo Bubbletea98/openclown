@@ -12,7 +12,8 @@
       "provider": { "type": "string" },
       "model": { "type": "string" },
       "maxTranscriptTokens": { "type": "number" },
-      "tagStyle": { "type": "string" }
+      "tagStyle": { "type": "string" },
+      "anthropicApiKey": { "type": "string" }
     }
   }
 }

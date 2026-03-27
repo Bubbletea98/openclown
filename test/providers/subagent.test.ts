@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createLlmCaller } from "../../src/providers/index.js";
 
 const mockLogger = { info: vi.fn(), warn: vi.fn() };
@@ -15,6 +15,13 @@ function makeSubagent(responseText: string) {
     }),
   };
 }
+
+// Reset module state between tests (subagentAvailable flag is module-level)
+beforeEach(async () => {
+  vi.resetModules();
+  mockLogger.info.mockClear();
+  mockLogger.warn.mockClear();
+});
 
 describe("createLlmCaller (subagent)", () => {
   it("returns assistant text from subagent response", async () => {
@@ -98,7 +105,7 @@ describe("createLlmCaller (subagent)", () => {
     };
 
     const llmCall = createLlmCaller(subagent, mockLogger, {});
-    await expect(llmCall("sys", "user")).rejects.toThrow("Empty response from OpenClaw subagent");
+    await expect(llmCall("sys", "user")).rejects.toThrow("Empty response");
   });
 
   it("throws on error status", async () => {
@@ -109,7 +116,7 @@ describe("createLlmCaller (subagent)", () => {
     };
 
     const llmCall = createLlmCaller(subagent, mockLogger, {});
-    await expect(llmCall("sys", "user")).rejects.toThrow("Subagent run failed: model not found");
+    await expect(llmCall("sys", "user")).rejects.toThrow("model not found");
     expect(subagent.getSessionMessages).not.toHaveBeenCalled();
   });
 

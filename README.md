@@ -66,6 +66,13 @@ Or install manually from npm:
 npm install openclown
 ```
 
+### Updating
+
+```bash
+rm -rf ~/.openclaw/extensions/openclown
+openclaw plugins install openclown
+```
+
 ### Step 2: That's it — no extra setup needed
 
 When you first installed OpenClaw (`npm install -g openclaw@latest`), you went through an interactive setup that configured your LLM API keys:
