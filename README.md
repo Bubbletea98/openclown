@@ -1,6 +1,10 @@
 # 🎪 OpenClown — Multi-Perspective AI Task Evaluation
 
 <p align="center">
+  <img src="docs/logo.png" width="200" alt="OpenClown logo">
+</p>
+
+<p align="center">
   <strong>Your AI did the work. Now let the circus review it.</strong>
 </p>
 
