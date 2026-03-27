@@ -1,7 +1,7 @@
 # 🎪 OpenClown — Multi-Perspective AI Task Evaluation
 
 <p align="center">
-  <img src="docs/logo.png" width="200" alt="OpenClown logo">
+  <img src="https://raw.githubusercontent.com/Bubbletea98/openclown/main/docs/logo.png" width="200" alt="OpenClown logo">
 </p>
 
 <p align="center">
@@ -166,17 +166,17 @@ OpenClown works anywhere OpenClaw does — WhatsApp, Telegram, Slack, Discord, o
 
 ### Ask a question, then evaluate
 
-<img src="docs/screenshots/01-ask0-and-response.JPG" width="300" alt="User asks OpenClaw for a restaurant recommendation on WhatsApp">
+<img src="https://raw.githubusercontent.com/Bubbletea98/openclown/main/docs/screenshots/01-ask0-and-response.JPG" width="300" alt="User asks OpenClaw for a restaurant recommendation on WhatsApp">
 
 ### `/clown` — multi-perspective evaluation
 
-<img src="docs/screenshots/02-clown-evaluation-1.JPG" width="300" alt="OpenClown evaluation — part 1">
-<img src="docs/screenshots/02-clown-evaluation-2.JPG" width="300" alt="OpenClown evaluation — part 2">
-<img src="docs/screenshots/02-clown-evaluation-3.JPG" width="300" alt="OpenClown evaluation — part 3">
+<img src="https://raw.githubusercontent.com/Bubbletea98/openclown/main/docs/screenshots/02-clown-evaluation-1.JPG" width="300" alt="OpenClown evaluation — part 1">
+<img src="https://raw.githubusercontent.com/Bubbletea98/openclown/main/docs/screenshots/02-clown-evaluation-2.JPG" width="300" alt="OpenClown evaluation — part 2">
+<img src="https://raw.githubusercontent.com/Bubbletea98/openclown/main/docs/screenshots/02-clown-evaluation-3.JPG" width="300" alt="OpenClown evaluation — part 3">
 
 ### `/clown encore` — improved response with feedback applied
 
-<img src="docs/screenshots/03-clown-encore.JPG" width="300" alt="OpenClown encore — improved response">
+<img src="https://raw.githubusercontent.com/Bubbletea98/openclown/main/docs/screenshots/03-clown-encore.JPG" width="300" alt="OpenClown encore — improved response">
 
 ### Other ways to target a response
 
@@ -593,7 +593,7 @@ openclown/
 ## Development
 
 ```bash
-git clone https://github.com/openclown/openclown.git
+git clone https://github.com/Bubbletea98/openclown.git
 cd openclown
 
 npm install
