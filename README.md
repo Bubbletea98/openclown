@@ -57,7 +57,7 @@ You ask OpenClaw to do something
 ### Step 1: Install the plugin
 
 ```bash
-openclaw plugin install openclown
+openclaw plugins install openclown
 ```
 
 Or install manually from npm:

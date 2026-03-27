@@ -1,6 +1,6 @@
 {
   "name": "openclown",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Multi-perspective AI task evaluation circus for OpenClaw",
   "type": "module",
   "main": "dist/index.js",
@@ -22,7 +22,7 @@
   },
   "openclaw": {
     "extensions": [
-      "./src/index.ts"
+      "./dist/index.js"
     ]
   },
   "keywords": [
