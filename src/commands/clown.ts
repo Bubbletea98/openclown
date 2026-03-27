@@ -4,6 +4,8 @@ import {
   findExchangeByKeyword,
   getLatestExchange,
   getExchangesBefore,
+  setReplyResolved,
+  wasReplyResolved,
   type CachedExchange,
 } from "../transcript/cache.js";
 import { loadLatestSessionFromDisk } from "../transcript/reader.js";
@@ -175,22 +177,28 @@ export async function handleClownCommand(
         "🎪 OpenClown Commands",
         "━━━━━━━━━━━━━━━━━━━━━━",
         "",
-        "/clown — evaluate the last AI task",
-        "/clown #N — evaluate a specific response by number",
-        "/clown <keyword> — search and evaluate by keyword",
-        "/clown circus — manage your performer lineup",
-        "/clown circus add <id> — enable a performer",
-        "/clown circus remove <id> — disable a performer",
-        "/clown circus create <desc> — create a custom performer",
-        "/clown circus edit <id> [changes] — edit an existing performer",
-        "/clown circus delete <id> — permanently remove a custom performer",
-        "/clown circus reset — restore defaults",
+        "Evaluate:",
+        "  /clown — evaluate the last AI task",
+        "  /clown #N — evaluate by reference number",
+        "  /clown <keyword> — search and evaluate by keyword",
+        "  /clown encore — re-run task with feedback applied",
+        "",
+        "Circus:",
+        "  /clown circus — view performer lineup",
+        "  /clown circus add <id> — enable a performer",
+        "  /clown circus remove <id> — disable a performer",
+        "  /clown circus toggle 1,3,5 — toggle by number",
+        "  /clown circus reset — restore defaults",
+        "",
+        "Custom performers:",
+        "  /clown circus create <desc> — create (guided flow)",
+        "  /clown circus edit <id> [changes] — edit existing",
+        "  /clown circus delete <id> — permanently remove",
+        "  /clown circus preview — view pending draft",
+        "  /clown circus confirm — save pending draft",
+        "  /clown circus cancel — discard pending draft",
+        "",
         "/clown help — show this message",
-        "",
-        "/clown encore — re-run task with circus feedback applied",
-        "",
-        "Coming soon:",
-        "/clown chat <id> — chat with a performer",
       ].join("\n"),
     };
   }
@@ -211,7 +219,7 @@ export async function handleClownCommand(
     if (!isNaN(refNum)) {
       exchange = findExchangeByRef(refNum);
       if (!exchange) {
-        return { text: `🎪 No cached message found for #${refNum}. It may have expired (30min TTL).` };
+        return { text: `🎪 No cached message found for #${refNum}. It may have expired (2h TTL).` };
       }
     }
   }
@@ -224,8 +232,17 @@ export async function handleClownCommand(
     }
   }
 
+  // Track whether we fell back to latest due to failed reply targeting
+  let replyFallback = false;
+
   // 4. Default: latest exchange (try cache first, then load from disk)
   if (!exchange) {
+    // Check if user tried to reply but we couldn't resolve the target
+    if (!wasReplyResolved() && !args) {
+      replyFallback = true;
+      logger.info("/clown: reply targeting failed — falling back to latest exchange");
+    }
+
     exchange = getLatestExchange();
     if (!exchange) {
       logger.info("/clown: cache empty, loading from session transcript files...");
@@ -234,6 +251,9 @@ export async function handleClownCommand(
     }
     logger.info(`/clown: using latest exchange: ${exchange ? `#${exchange.refNum}` : "none"}`);
   }
+
+  // Reset reply state for next command
+  setReplyResolved(true);
 
   if (!exchange) {
     return {
@@ -260,7 +280,11 @@ export async function handleClownCommand(
     lastEvaluation = result;
     lastExchange = exchange;
     lastPriorExchanges = priorExchanges;
-    return { text: formatEvaluation(result) };
+    let output = formatEvaluation(result);
+    if (replyFallback) {
+      output = "⚠️ Could not resolve the replied message — it may have been sent before OpenClown was active. Evaluating the most recent exchange instead.\n\n" + output;
+    }
+    return { text: output };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     logger.info(`/clown: evaluation failed: ${message}`);
@@ -380,17 +404,7 @@ async function handleCircusSubcommand(
     });
     lines.push("");
     lines.push("━━━━━━━━━━━━━━━━━━━━━━");
-    lines.push("Quick toggle by number:");
-    lines.push("  /clown circus toggle 1,4,7");
-    lines.push("");
-    lines.push("By name (multiple ok):");
-    lines.push("  /clown circus add comedian grandparents");
-    lines.push("  /clown circus remove philosopher security");
-    lines.push("");
-    lines.push("/clown circus create <description> — create a custom performer");
-    lines.push("/clown circus edit <id> [changes] — edit an existing performer");
-    lines.push("/clown circus delete <id> — permanently remove a custom performer");
-    lines.push("/clown circus reset — restore defaults");
+    lines.push("add/remove <id> · toggle 1,3 · create <desc> · /clown help");
     return { text: lines.join("\n") };
   }
 

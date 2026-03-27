@@ -29,8 +29,7 @@ export function formatEvaluation(result: EvaluationResult): string {
 
   lines.push("");
   lines.push("━━━━━━━━━━━━━━━━━━━━━━");
-  lines.push("Reply /clown encore to re-run with feedback");
-  lines.push("Reply /clown chat <performer_id> to discuss further");
+  lines.push("/clown encore · /clown circus · /clown help");
 
   return lines.join("\n");
 }

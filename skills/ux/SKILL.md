@@ -6,7 +6,7 @@ names:
   ja: UXデザイナー
   ko: UX 디자이너
   fr: Designer UX
-  es: Diseñador UX
+  es: Diseño UX
 emoji: "🎨"
 severity: insight
 category: serious

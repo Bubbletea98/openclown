@@ -210,7 +210,7 @@ You:     /clown
 
 This also works with `/clown encore` — the improved response is generated with full conversation context.
 
-> **Screenshot needed:** A `/clown` evaluation of a short follow-up question (like "How about Ottawa?" or "What about pricing?"), where the evaluation output shows the performers understood the full context from the prior exchange rather than treating it as a vague question.
+<!-- Screenshot: /clown evaluation of a follow-up question showing performers understood context -->
 
 ### Managing your circus
 
@@ -231,9 +231,9 @@ OpenClaw: 🎪 Circus Performers
          ⬜ 7. 💰 VC Investor  [investor]
          ⬜ 8. 😂 Comedian  [comedian]
          ⬜ 9. 🎭 Shakespeare  [shakespeare]
-         ⬜ 10. 🕵️ Conspiracy Theorist  [conspiracy]
-         ⬜ 11. 👴 Grandparent  [grandparent]
-         ⬜ 12. 🐱 Cat Expert  [cat]
+         ⬜ 10. 🔮 Conspiracy Theorist  [conspiracy]
+         ⬜ 11. 👵👴 Grandparents  [grandparents]
+         ⬜ 12. 🐱 Cat Expert  [catexpert]
 ```
 
 **Add performers** — enable one or more by ID:
@@ -349,7 +349,8 @@ OpenClaw: 🗑️ ⚖️ Maritime Law Expert permanently removed.
 
 Only custom performers can be deleted. Built-in performers can only be disabled with `/clown circus remove`.
 
-> **Screenshot needed:** A screenshot of the `/clown circus` numbered list showing a mix of enabled/disabled performers.
+<!-- Screenshot: /clown circus list with mix of enabled/disabled + custom performers -->
+<!-- Screenshot: /clown circus create flow showing interview → draft → confirm -->
 
 ## Performers
 
@@ -371,8 +372,8 @@ Additional performers you can enable:
 | VC Investor | 💰 | Value proposition, scalability, ROI |
 | Comedian | 😂 | Absurdity, overthinking, unintentional humor |
 | Shakespeare | 🎭 | Narrative arc, emotional truth, prose quality |
-| Conspiracy Theorist | 🕵️ | Data provenance, hidden agendas, algorithmic bias |
-| Grandparent | 👴 | Practicality, common sense, well-being |
+| Conspiracy Theorist | 🔮 | Data provenance, hidden agendas, algorithmic bias |
+| Grandparents | 👵👴 | Practicality, common sense, well-being |
 | Cat Expert | 🐱 | Efficiency, priorities, power dynamics |
 
 Manage performers with `/clown circus`:
@@ -505,6 +506,8 @@ the entire task. Should implement retry with backoff.
 Severity: 🔴 Critical
 
 ━━━━━━━━━━━━━━━━━━━━━━
+/clown encore — re-run with feedback applied
+/clown circus — manage performers or create your own
 ```
 
 ### Follow-up with conversation context
@@ -537,6 +540,8 @@ were used, making a fair comparison impossible for the user.
 Severity: ⚠️ Warning
 
 ━━━━━━━━━━━━━━━━━━━━━━
+/clown encore — re-run with feedback applied
+/clown circus — manage performers or create your own
 ```
 
 ## Multilingual support
@@ -548,33 +553,41 @@ OpenClown auto-detects the language of the user's request and evaluates in the s
 ```
 openclown/
 ├── src/
-│   ├── index.ts              # Plugin entry + API key resolution
-│   ├── commands/clown.ts     # /clown command handler
+│   ├── index.ts                    # Plugin entry point
+│   ├── commands/clown.ts           # /clown command handler + circus subcommands
 │   ├── circus/
-│   │   ├── types.ts          # Core types (Performer, Circus, etc.)
-│   │   ├── defaults.ts       # Performer state + language detection
-│   │   ├── engine.ts         # Parallel evaluation engine
-│   │   ├── prompt.ts         # Evaluation prompt builder
-│   │   └── skill-loader.ts   # Auto-loads skills from SKILL.md files
+│   │   ├── types.ts                # Core types (Performer, Circus, etc.)
+│   │   ├── defaults.ts             # Performer state, language detection, custom performers
+│   │   ├── engine.ts               # Parallel evaluation engine
+│   │   ├── prompt.ts               # Evaluation prompt builder
+│   │   ├── generator-prompt.ts     # LLM prompts for creating/editing performers
+│   │   └── skill-loader.ts         # Auto-loads skills from built-in + user dirs
+│   ├── providers/
+│   │   └── index.ts                # LLM caller via OpenClaw subagent runtime
 │   ├── transcript/
-│   │   ├── cache.ts          # In-memory exchange cache
-│   │   ├── extractor.ts      # Parses messages into structured exchanges
-│   │   └── reader.ts         # Session transcript reader
+│   │   ├── cache.ts                # In-memory exchange cache + conversation history
+│   │   ├── extractor.ts            # Parses messages into structured exchanges
+│   │   └── reader.ts               # Session transcript reader
 │   ├── hooks/
-│   │   ├── agent-end.ts      # Caches exchanges on task completion
-│   │   ├── message-sending.ts # Tags outbound messages with [🎪 #N]
-│   │   └── inbound-claim.ts  # Extracts ref from reply context
-│   ├── output/formatter.ts   # Formats evaluation results
-│   └── config/schema.ts      # Plugin config schema
-├── skills/                   # Performer definitions (drop-in)
+│   │   ├── agent-end.ts            # Caches exchanges on task completion
+│   │   ├── message-sending.ts      # Tags outbound messages with [🎪 #N]
+│   │   └── inbound-claim.ts        # Extracts ref from reply context
+│   ├── output/formatter.ts         # Formats evaluation results
+│   └── config/schema.ts            # Plugin config schema
+├── skills/                         # Built-in performer definitions (12 total)
 │   ├── philosopher/SKILL.md
 │   ├── security/SKILL.md
 │   ├── developer/SKILL.md
-│   └── ... (12 total)
+│   └── ...
 ├── test/
 ├── openclaw.plugin.json
 ├── package.json
 └── tsconfig.json
+
+~/.openclaw/openclown/              # User data (created at runtime)
+├── circus.json                     # Persisted performer selection
+└── skills/                         # User-created custom performers
+    └── <custom-id>/SKILL.md
 ```
 
 ## Development

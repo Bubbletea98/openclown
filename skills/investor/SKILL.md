@@ -2,11 +2,11 @@
 id: investor
 names:
   en: VC Investor
-  zh: 风投大佬
+  zh: 风投专家
   ja: VCインベスター
   ko: VC 투자자
-  fr: Investisseur VC
-  es: Inversor VC
+  fr: Investisseur·euse VC
+  es: Inversionista VC
 emoji: "💰"
 severity: insight
 category: fun

@@ -6,7 +6,7 @@ names:
   ja: 哲学者
   ko: 철학자
   fr: Philosophe
-  es: Filósofo
+  es: Filosofía
 emoji: "🎭"
 severity: insight
 category: serious

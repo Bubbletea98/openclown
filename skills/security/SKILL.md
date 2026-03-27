@@ -5,8 +5,8 @@ names:
   zh: 安全专家
   ja: セキュリティ専門家
   ko: 보안 전문가
-  fr: Expert Sécurité
-  es: Experto en Seguridad
+  fr: Sécurité
+  es: Seguridad
 emoji: "🔒"
 severity: warning
 category: serious

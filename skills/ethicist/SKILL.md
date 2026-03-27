@@ -5,7 +5,7 @@ names:
   zh: 伦理学家
   ja: 倫理学者
   ko: 윤리학자
-  fr: Éthicien
+  fr: Éthique
   es: Eticista
 emoji: "⚖️"
 severity: warning

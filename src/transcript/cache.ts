@@ -1,3 +1,7 @@
+import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { homedir } from "node:os";
+
 export type CachedMessage = {
   role: string;
   content: unknown;
@@ -15,22 +19,92 @@ export type CachedExchange = {
   timestamp: number;
 };
 
-/**
- * Global exchange cache.
- * MVP simplification: single list of recent exchanges, no per-channel keying.
- * This works because most users have one active conversation at a time.
- */
-const recentExchanges: CachedExchange[] = [];
-const MAX_CACHED_EXCHANGES = 50;
-const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+// --- Persistence ---
 
-let refCounter = 0;
+const PERSIST_DIR = join(homedir(), ".openclaw", "openclown");
+const PERSIST_FILE = join(PERSIST_DIR, "exchanges.json");
+
+type PersistedData = {
+  refCounter: number;
+  exchanges: CachedExchange[];
+};
+
+function loadFromDisk(): PersistedData | null {
+  try {
+    const raw = readFileSync(PERSIST_FILE, "utf-8");
+    const data = JSON.parse(raw) as PersistedData;
+    if (typeof data.refCounter === "number" && Array.isArray(data.exchanges)) {
+      return data;
+    }
+  } catch {
+    // File doesn't exist yet or is invalid
+  }
+  return null;
+}
+
+function saveToDisk(): void {
+  try {
+    mkdirSync(PERSIST_DIR, { recursive: true });
+    const data: PersistedData = {
+      refCounter,
+      // Only persist the serializable fields (drop rawMessages to save space)
+      exchanges: recentExchanges.map((e) => ({
+        refNum: e.refNum,
+        userRequest: e.userRequest,
+        toolCalls: [], // Don't persist raw tool call content
+        assistantResponse: e.assistantResponse,
+        thinking: e.thinking,
+        executedTools: e.executedTools,
+        rawMessages: [], // Don't persist raw messages (too large)
+        timestamp: e.timestamp,
+      })),
+    };
+    writeFileSync(PERSIST_FILE, JSON.stringify(data, null, 2));
+  } catch {
+    // Silently fail — persistence is best-effort
+  }
+}
+
+// --- State ---
+
+const MAX_CACHED_EXCHANGES = 50;
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (was 30 minutes)
+
+// Load persisted state on startup
+const persisted = loadFromDisk();
+const recentExchanges: CachedExchange[] = persisted?.exchanges ?? [];
+let refCounter: number = persisted?.refCounter ?? 0;
+
+// Prune expired entries loaded from disk
+pruneExpired();
+
+if (persisted) {
+  console.log(
+    `[openclown] Restored ${recentExchanges.length} cached exchanges, refCounter=${refCounter}`,
+  );
+}
 
 // Temp lookup: for reply targeting (inbound_claim → command handler)
 const replyTargetCache = new Map<string, { refNum: number; expiresAt: number }>();
 
+// --- Track whether current command was resolved via reply ---
+
+let lastReplyResolved = false;
+
+export function setReplyResolved(resolved: boolean): void {
+  lastReplyResolved = resolved;
+}
+
+export function wasReplyResolved(): boolean {
+  return lastReplyResolved;
+}
+
+// --- Public API ---
+
 export function getNextRefNum(): number {
-  return ++refCounter;
+  ++refCounter;
+  saveToDisk(); // Persist counter so it survives restarts
+  return refCounter;
 }
 
 export function addExchange(exchange: CachedExchange): void {
@@ -39,6 +113,7 @@ export function addExchange(exchange: CachedExchange): void {
   if (recentExchanges.length > MAX_CACHED_EXCHANGES) {
     recentExchanges.shift();
   }
+  saveToDisk();
 }
 
 export function getLatestExchange(): CachedExchange | undefined {

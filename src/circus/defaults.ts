@@ -15,7 +15,19 @@ import {
 // --- Load skills from both built-in and user directories ---
 
 const builtinSkillsDir = resolveSkillsDir();
-let loadedSkills = [...loadSkills(builtinSkillsDir), ...loadUserSkills()];
+let loadedSkills = mergeSkills(loadSkills(builtinSkillsDir), loadUserSkills());
+
+/**
+ * Merge built-in and user skills. User skills with the same ID override built-in ones.
+ */
+function mergeSkills(
+  builtins: ReturnType<typeof loadSkills>,
+  userSkills: ReturnType<typeof loadSkills>,
+): ReturnType<typeof loadSkills> {
+  const userIds = new Set(userSkills.map((s) => s.id));
+  const filtered = builtins.filter((s) => !userIds.has(s.id));
+  return [...filtered, ...userSkills];
+}
 
 // --- Persistence ---
 
@@ -74,7 +86,7 @@ export function refreshPerformerNames(): void {
 
 /** Reload skills from both built-in and user directories. */
 function reloadAllSkills(): void {
-  loadedSkills = [...loadSkills(builtinSkillsDir), ...loadUserSkills()];
+  loadedSkills = mergeSkills(loadSkills(builtinSkillsDir), loadUserSkills());
   refreshPerformerNames();
 }
 
@@ -166,13 +178,7 @@ export function addCustomPerformer(skillMdContent: string): Performer | null {
   const parsed = parseSkillMd(skillMdContent);
   if (!parsed) return null;
 
-  // Check for ID collision with built-in
-  const builtinSkills = loadSkills(builtinSkillsDir);
-  if (builtinSkills.some((s) => s.id === parsed.id)) {
-    return null; // Can't override built-in
-  }
-
-  // Save to user directory
+  // Save to user directory (overrides built-in if same ID — used by edit)
   const skillDir = join(USER_SKILLS_DIR, parsed.id);
   mkdirSync(skillDir, { recursive: true });
   writeFileSync(join(skillDir, "SKILL.md"), skillMdContent, "utf-8");

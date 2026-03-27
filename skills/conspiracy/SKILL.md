@@ -6,8 +6,8 @@ names:
   ja: 陰謀論者
   ko: 음모론자
   fr: Complotiste
-  es: Conspiranoico
-emoji: "🕵️"
+  es: Conspiracionista
+emoji: "🔮"
 severity: warning
 category: fun
 ---

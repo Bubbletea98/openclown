@@ -5,8 +5,8 @@ names:
   zh: 事实核查员
   ja: ファクトチェッカー
   ko: 팩트체커
-  fr: Vérificateur
-  es: Verificador
+  fr: Vérification des faits
+  es: Verificación de hechos
 emoji: "🔍"
 severity: critical
 category: serious

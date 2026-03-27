@@ -1,6 +1,7 @@
-import { setReplyTarget } from "../transcript/cache.js";
+import { setReplyTarget, setReplyResolved } from "../transcript/cache.js";
 
 const REF_TAG_REGEX = /\[🎪 #(\d+)\]/;
+const REPLY_CONTEXT_REGEX = /\[Replying to/i;
 
 type InboundClaimEvent = {
   content: string;
@@ -37,9 +38,17 @@ export function handleInboundClaim(event: InboundClaimEvent, logger: Logger): vo
     if (!isNaN(refNum)) {
       const key = `${event.channel}:${event.senderId ?? "unknown"}`;
       setReplyTarget(key, refNum);
+      setReplyResolved(true);
       logger.info(`inbound_claim: reply target set to #${refNum} for ${key}`);
     }
+  } else if (REPLY_CONTEXT_REGEX.test(body)) {
+    // User replied to a message but we couldn't find a ref tag —
+    // either the message was sent before OpenClown, or the tag was truncated.
+    setReplyResolved(false);
+    logger.info("inbound_claim: reply detected but no ref tag found — message may predate OpenClown");
   } else {
-    logger.debug("inbound_claim: no ref tag found in reply body");
+    // No reply context at all — bare /clown command
+    setReplyResolved(true); // Not a reply, so no mismatch to warn about
+    logger.debug("inbound_claim: no reply context in body");
   }
 }
