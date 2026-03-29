@@ -1,7 +1,7 @@
 # 🎪 OpenClown — Multi-Perspective AI Task Evaluation
 
 <p align="center">
-  <img src="docs/logo.png" width="150" alt="OpenClown logo"><br>
+  <img src="docs/logo.png" width="300" alt="OpenClown logo"><br>
   <em>Your AI did the work. Now let the circus review it.</em><br><br>
   <a href="https://www.npmjs.com/package/openclown"><img src="https://img.shields.io/npm/v/openclown?style=for-the-badge" alt="npm version"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge" alt="MIT License"></a>
