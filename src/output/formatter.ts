@@ -29,7 +29,8 @@ export function formatEvaluation(result: EvaluationResult): string {
 
   lines.push("");
   lines.push("━━━━━━━━━━━━━━━━━━━━━━");
-  lines.push("/clown encore · /clown circus · /clown help");
+  lines.push("💡 Reply with /clown encore — regenerate the answer addressing the evaluations above");
+  lines.push("📖 /clown help — see all available commands");
 
   return lines.join("\n");
 }

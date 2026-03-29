@@ -15,6 +15,8 @@ ${evaluationContext}
 
 ---
 
+IMPORTANT: Respond in the SAME LANGUAGE as the user's original request. Even if tool calls or results are in a different language, your evaluation must match the user's language.
+
 Respond with ONLY your evaluation (2-3 sentences). Do not repeat the original content. Do not use any prefix or label — just your evaluation content.`;
 }
 
@@ -66,6 +68,8 @@ Your 2-3 sentence evaluation here.
 </evaluation>`,
   )
   .join("\n\n")}
+
+IMPORTANT: Write each evaluation in the SAME LANGUAGE as the user's original request. Even if tool calls or results are in a different language, your evaluation must match the user's language.
 
 Be specific, actionable, and honest. If something is genuinely good, say so. If there are real issues, call them out clearly.`;
 }

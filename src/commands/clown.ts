@@ -185,18 +185,15 @@ export async function handleClownCommand(
         "",
         "Circus:",
         "  /clown circus — view performer lineup",
-        "  /clown circus add <id> — enable a performer",
-        "  /clown circus remove <id> — disable a performer",
-        "  /clown circus toggle 1,3,5 — toggle by number",
+        "  /clown circus on <id or number> — enable performer(s)",
+        "  /clown circus off <id or number> — disable performer(s)",
+        "  /clown circus toggle 1,3 — enable and disable in one command",
         "  /clown circus reset — restore defaults",
         "",
         "Custom performers:",
         "  /clown circus create <desc> — create (guided flow)",
         "  /clown circus edit <id> [changes] — edit existing",
         "  /clown circus delete <id> — permanently remove",
-        "  /clown circus preview — view pending draft",
-        "  /clown circus confirm — save pending draft",
-        "  /clown circus cancel — discard pending draft",
         "",
         "/clown help — show this message",
       ].join("\n"),
@@ -367,8 +364,8 @@ ${lastExchange.assistantResponse}`;
       improvedResponse,
       "",
       "━━━━━━━━━━━━━━━━━━━━━━",
-      "This response was regenerated with circus feedback applied.",
-      "Run /clown to evaluate again, or /clown encore for another round.",
+      "💡 Reply with /clown — evaluate this improved answer",
+      "🎪 /clown circus — manage your performers or create new ones",
     ];
 
     // Update the exchange's assistant response for potential re-evaluation
@@ -395,6 +392,30 @@ ${lastExchange.assistantResponse}`;
  * /clown circus toggle 1,3,5               — toggle by number from list
  * /clown circus reset                      — restore defaults
  */
+/**
+ * Resolve a list of items (numbers or ids) to performer ids.
+ */
+function resolvePerformerIds(items: string[]): { valid: string[]; unknown: string[] } {
+  const valid: string[] = [];
+  const unknown: string[] = [];
+  for (const item of items) {
+    const num = parseInt(item, 10);
+    if (!isNaN(num)) {
+      const idx = num - 1;
+      if (idx >= 0 && idx < ALL_PERFORMERS.length) {
+        valid.push(ALL_PERFORMERS[idx].id);
+      } else {
+        unknown.push(item);
+      }
+    } else if (ALL_PERFORMERS.some((p) => p.id === item)) {
+      valid.push(item);
+    } else {
+      unknown.push(item);
+    }
+  }
+  return { valid, unknown };
+}
+
 async function handleCircusSubcommand(
   args: string,
   llmCall: LlmCaller,
@@ -406,36 +427,59 @@ async function handleCircusSubcommand(
 
   // /clown circus — numbered list with checkmarks
   if (!subCmd || subCmd === "list") {
-    const lines = ["🎪 Circus Performers", "━━━━━━━━━━━━━━━━━━━━━━", ""];
+    const lines = ["🎪 Circus Performers", "━━━━━━━━━━━━━━━━━━━━━━", "", "Toggle performers on/off using (number) or [id]:", ""];
     ALL_PERFORMERS.forEach((p, i) => {
       const num = i + 1;
       const check = isPerformerEnabled(p.id) ? "✅" : "⬜";
       const custom = isUserSkill(p.id) ? " (custom)" : "";
-      lines.push(`${check} ${num}. ${p.emoji} ${p.name}  [${p.id}]${custom}`);
+      lines.push(`${check} (${num}) ${p.emoji} ${p.name}  [${p.id}]${custom}`);
     });
     lines.push("");
     lines.push("━━━━━━━━━━━━━━━━━━━━━━");
-    lines.push("add/remove <id> · toggle 1,3 · create <desc> · /clown help");
+    lines.push("Use id or number above for performers. Separate multiple with commas.");
+    lines.push("✅ /clown circus on comedian — enable performer(s)");
+    lines.push("⬜ /clown circus off philosopher — disable performer(s)");
+    lines.push("🔄 /clown circus toggle 1,3 — enable & disable in one command");
+    lines.push("✨ /clown circus create <description> — create your own");
+    lines.push("📖 /clown help — all commands");
     return { text: lines.join("\n") };
   }
 
-  // /clown circus toggle 1,3,5
+  // /clown circus toggle 1,3,5 or toggle comedian,security
   if (subCmd === "toggle") {
-    const numStr = targets.join(",");
-    const nums = numStr.split(",").map((s) => parseInt(s.trim(), 10)).filter((n) => !isNaN(n));
+    const items = targets.join(",").split(",").map((s) => s.trim()).filter(Boolean);
 
-    if (nums.length === 0) {
-      return { text: "🎪 Usage: /clown circus toggle 1,3,5\nUse /clown circus to see numbers." };
+    if (items.length === 0) {
+      return { text: "🎪 Usage:\n  /clown circus toggle 1,3,5 (by number)\n  /clown circus toggle comedian,security (by id)\nUse /clown circus to see the list." };
     }
 
     const results: string[] = [];
-    for (const num of nums) {
-      const idx = num - 1;
-      if (idx < 0 || idx >= ALL_PERFORMERS.length) {
-        results.push(`❌ #${num} — invalid number`);
+    for (const item of items) {
+      const num = parseInt(item, 10);
+
+      // Try as number first
+      if (!isNaN(num)) {
+        const idx = num - 1;
+        if (idx < 0 || idx >= ALL_PERFORMERS.length) {
+          results.push(`❌ (${num}) — invalid number`);
+          continue;
+        }
+        const p = ALL_PERFORMERS[idx];
+        const { enabled, success } = togglePerformer(p.id);
+        if (success) {
+          results.push(`${enabled ? "✅" : "⬜"} ${p.emoji} ${p.name}`);
+        } else {
+          results.push(`❌ ${p.emoji} ${p.name} — can't remove last performer`);
+        }
         continue;
       }
-      const p = ALL_PERFORMERS[idx];
+
+      // Try as id
+      const p = ALL_PERFORMERS.find((x) => x.id === item);
+      if (!p) {
+        results.push(`❌ "${item}" — not found`);
+        continue;
+      }
       const { enabled, success } = togglePerformer(p.id);
       if (success) {
         results.push(`${enabled ? "✅" : "⬜"} ${p.emoji} ${p.name}`);
@@ -447,52 +491,56 @@ async function handleCircusSubcommand(
     return { text: `🎪 Toggled:\n${results.join("\n")}` };
   }
 
-  // /clown circus add <id> [id2] [id3]
-  if (subCmd === "add") {
-    if (targets.length === 0) {
-      return { text: "🎪 Usage: /clown circus add <id> [id2] [id3]\nUse /clown circus to see IDs." };
+  // /clown circus on <id|number> — enable performers
+  // /clown circus add <id> — alias for on
+  if (subCmd === "on" || subCmd === "add") {
+    const items = targets.join(",").split(",").map((s) => s.trim()).filter(Boolean);
+    if (items.length === 0) {
+      return { text: "🎪 Usage: /clown circus on comedian,factchecker\nUse /clown circus to see the list." };
     }
-    const added = enablePerformers(...targets);
-    const unknown = targets.filter((t) => !ALL_PERFORMERS.some((p) => p.id === t));
-    const already = targets.filter((t) => !added.includes(t) && !unknown.includes(t));
+    const ids = resolvePerformerIds(items);
+    const added = enablePerformers(...ids.valid);
 
     const lines: string[] = [];
     for (const id of added) {
       const p = ALL_PERFORMERS.find((x) => x.id === id);
-      lines.push(`✅ ${p?.emoji ?? "🎪"} ${p?.name ?? id} joined!`);
+      lines.push(`✅ ${p?.emoji ?? "🎪"} ${p?.name ?? id} enabled`);
     }
-    for (const id of already) {
+    for (const id of ids.valid.filter((t) => !added.includes(t))) {
       const p = ALL_PERFORMERS.find((x) => x.id === id);
       lines.push(`⏭️ ${p?.emoji ?? "🎪"} ${p?.name ?? id} already active`);
     }
-    for (const id of unknown) {
-      lines.push(`❌ "${id}" — not found`);
+    for (const item of ids.unknown) {
+      lines.push(`❌ "${item}" — not found`);
     }
-
     return { text: lines.join("\n") };
   }
 
-  // /clown circus remove <id> [id2] [id3]
-  if (subCmd === "remove") {
-    if (targets.length === 0) {
-      return { text: "🎪 Usage: /clown circus remove <id> [id2] [id3]\nUse /clown circus to see IDs." };
+  // /clown circus off <id|number> — disable performers
+  // /clown circus remove <id> — alias for off
+  if (subCmd === "off" || subCmd === "remove") {
+    const items = targets.join(",").split(",").map((s) => s.trim()).filter(Boolean);
+    if (items.length === 0) {
+      return { text: "🎪 Usage: /clown circus off philosopher,security\nUse /clown circus to see the list." };
     }
-    const removed = disablePerformers(...targets);
-    const notActive = targets.filter((t) => !removed.includes(t));
+    const ids = resolvePerformerIds(items);
+    const removed = disablePerformers(...ids.valid);
 
     const lines: string[] = [];
     for (const id of removed) {
       const p = ALL_PERFORMERS.find((x) => x.id === id);
-      lines.push(`⬜ ${p?.emoji ?? "🎪"} ${p?.name ?? id} left the circus`);
+      lines.push(`⬜ ${p?.emoji ?? "🎪"} ${p?.name ?? id} disabled`);
     }
-    for (const id of notActive) {
+    for (const id of ids.valid.filter((t) => !removed.includes(t))) {
       if (isPerformerEnabled(id)) {
-        lines.push(`❌ ${id} — can't remove, need at least 1 performer`);
+        lines.push(`❌ ${id} — can't remove last performer`);
       } else {
-        lines.push(`⏭️ ${id} — was not active`);
+        lines.push(`⏭️ ${id} — already inactive`);
       }
     }
-
+    for (const item of ids.unknown) {
+      lines.push(`❌ "${item}" — not found`);
+    }
     return { text: lines.join("\n") };
   }
 
@@ -797,5 +845,5 @@ async function handleCircusSubcommand(
     };
   }
 
-  return { text: `🎪 Unknown: /clown circus ${subCmd}\nTry: /clown circus, add, remove, toggle, create, confirm, cancel, delete, reset` };
+  return { text: `🎪 Unknown: /clown circus ${subCmd}\nTry: /clown circus, on, off, toggle, create, edit, delete, reset` };
 }
