@@ -1,10 +1,8 @@
 # 🎪 OpenClown — Multi-Perspective AI Task Evaluation
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Bubbletea98/openclown/main/docs/logo.png" width="200" alt="OpenClown logo">
-</p>
-
-<p align="center">
+  <img src="https://raw.githubusercontent.com/Bubbletea98/openclown/main/docs/logo.png" width="280" alt="OpenClown logo">
+  <br>
   <strong>Your AI did the work. Now let the circus review it.</strong>
 </p>
 
