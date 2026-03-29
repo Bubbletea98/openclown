@@ -214,15 +214,28 @@ export function buildEvaluationContext(
     parts.push(`## Commands & Tools Executed\n${toolDetails}`);
   }
 
-  // Include tool results
+  // Include tool results (prefer live data, fall back to persisted summaries)
   if (exchange.toolCalls.length > 0) {
+    const hasLongResults = exchange.toolCalls.some(
+      (tc) => extractTextContent(tc.content).length > 1500,
+    );
     const toolSummary = exchange.toolCalls
       .map((tc) => {
         const text = extractTextContent(tc.content);
-        return text.length > 500 ? text.slice(0, 500) + "... (truncated)" : text;
+        return text.length > 1500 ? text.slice(0, 1500) + "..." : text;
       })
       .join("\n---\n");
-    parts.push(`## Tool Results (${exchange.toolCalls.length} results)\n${toolSummary}`);
+    const header = hasLongResults
+      ? `## Tool Results — Preview (${exchange.toolCalls.length} results, showing first ~500 tokens each to reduce cost)`
+      : `## Tool Results (${exchange.toolCalls.length} results)`;
+    parts.push(`${header}\n${toolSummary}`);
+  } else if (exchange.toolCallSummaries && exchange.toolCallSummaries.length > 0) {
+    // Persisted summaries (after restart, raw toolCalls are gone)
+    const summaryLines = exchange.toolCallSummaries.map((s, i) => {
+      const toolName = exchange.executedTools?.[i]?.name ?? "tool";
+      return `- ${toolName} → ${s}`;
+    });
+    parts.push(`## Tool Results (summarized)\n${summaryLines.join("\n")}`);
   }
 
   parts.push(`## Final Response\n${exchange.assistantResponse}`);

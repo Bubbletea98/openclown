@@ -4,6 +4,7 @@
 
 import { handleAgentEnd } from "./hooks/agent-end.js";
 import { handleInboundClaim } from "./hooks/inbound-claim.js";
+import { handleMessagePreprocessed } from "./hooks/message-preprocessed.js";
 import { handleMessageSending } from "./hooks/message-sending.js";
 import { handleClownCommand } from "./commands/clown.js";
 import { createLlmCaller } from "./providers/index.js";
@@ -74,44 +75,49 @@ export default {
       },
     });
 
-    // Cache session messages when agent run completes
-    api.registerHook(
-      "agent_end",
-      (event: unknown) => {
-        const e = event as { messages: unknown[]; success: boolean };
-        handleAgentEnd(e, logger);
-      },
-      { name: "openclown-agent-end" },
-    );
+    // --- Typed hooks (api.on) ---
+    // These register to registry.typedHooks, dispatched via runVoidHook/runClaimingHook
 
-    // Detect reply + /clown — extract ref number from quoted text
-    api.registerHook(
-      "inbound_claim",
-      (event: unknown) => {
-        const e = event as {
-          content: string;
-          body?: string;
-          bodyForAgent?: string;
-          channel: string;
-          senderId?: string;
-        };
-        handleInboundClaim(e, logger);
-      },
-      { name: "openclown-inbound-claim" },
-    );
+    // Cache session messages when agent run completes
+    api.on("agent_end", (event: unknown) => {
+      const e = event as { messages: unknown[]; success: boolean };
+      handleAgentEnd(e, logger);
+    });
+
+    // Detect reply + /clown via typed hook (works for plugin-bound conversations)
+    api.on("inbound_claim", (event: unknown) => {
+      const e = event as {
+        content: string;
+        body?: string;
+        bodyForAgent?: string;
+        channel: string;
+        senderId?: string;
+      };
+      handleInboundClaim(e, logger);
+    });
 
     // Tag outbound messages with reference numbers
+    api.on("message_sending", (event: unknown) => {
+      const e = event as {
+        to: string;
+        content: string;
+        metadata?: Record<string, unknown>;
+      };
+      return handleMessageSending(e, logger);
+    });
+
+    // --- Internal hooks (api.registerHook) ---
+    // These register to internal hooks system, dispatched via triggerInternalHook
+    // Uses event key format "type:action" (e.g., "message:preprocessed")
+
+    // Detect reply + /clown via internal hook (fires for ALL messages)
+    // This is the primary path for reply targeting — inbound_claim only fires
+    // for plugin-bound conversations, but message:preprocessed fires for every message.
+    // event.context.body contains the full reply context [Replying to ...]...[/Replying]
     api.registerHook(
-      "message_sending",
-      (event: unknown) => {
-        const e = event as {
-          to: string;
-          content: string;
-          metadata?: Record<string, unknown>;
-        };
-        return handleMessageSending(e, logger);
-      },
-      { name: "openclown-message-sending" },
+      "message:preprocessed",
+      (event: unknown) => handleMessagePreprocessed(event, logger),
+      { name: "openclown-message-preprocessed" },
     );
 
     logger.info("OpenClown circus is ready! Use /clown to evaluate tasks 🎪");

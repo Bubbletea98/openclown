@@ -1,11 +1,11 @@
 import {
   consumeReplyTarget,
+  consumeReplyContent,
   findExchangeByRef,
+  findExchangeByContent,
   findExchangeByKeyword,
   getLatestExchange,
   getExchangesBefore,
-  setReplyResolved,
-  wasReplyResolved,
   type CachedExchange,
 } from "../transcript/cache.js";
 import { loadLatestSessionFromDisk } from "../transcript/reader.js";
@@ -203,17 +203,44 @@ export async function handleClownCommand(
     };
   }
 
-  // 1. Try reply target (from inbound_claim hook)
-  let exchange: CachedExchange | undefined;
-  const replyKey = `${ctx.channel}:${ctx.senderId ?? "unknown"}`;
-  const replyRef = consumeReplyTarget(replyKey);
+  // Always refresh cache from session files to ensure we have latest data
+  // (hooks may not fire reliably in all OpenClaw versions)
+  loadLatestSessionFromDisk(logger);
 
+  // Resolution order:
+  // 1. [🎪 #N] tag from reply context (exact match)
+  // 2. Content matching from reply quoted text
+  // 3. Explicit #N argument
+  // 4. Keyword search
+  // 5. Latest exchange (fallback)
+
+  let exchange: CachedExchange | undefined;
+  let matchedViaContent = false;
+  const replyKey = `${ctx.channel}:${ctx.senderId ?? "unknown"}`;
+
+  // 1. Try [🎪 #N] tag (from inbound_claim hook)
+  const replyRef = consumeReplyTarget(replyKey);
   if (replyRef !== undefined) {
-    logger.info(`/clown: reply target found: #${replyRef}`);
+    logger.info(`/clown: reply target found via tag: #${replyRef}`);
     exchange = findExchangeByRef(replyRef);
   }
 
-  // 2. Explicit reference: /clown #3
+  // 2. Try content matching from reply quoted text
+  if (!exchange && !args) {
+    const quotedText = consumeReplyContent(replyKey);
+    if (quotedText) {
+      logger.info(`/clown: trying content match for: "${quotedText.slice(0, 80)}..."`);
+      exchange = findExchangeByContent(quotedText);
+      if (exchange) {
+        matchedViaContent = true;
+        logger.info(`/clown: content matched exchange #${exchange.refNum}`);
+      } else {
+        logger.info("/clown: content match failed, falling back to latest");
+      }
+    }
+  }
+
+  // 3. Explicit reference: /clown #3
   if (!exchange && args.startsWith("#")) {
     const refNum = parseInt(args.slice(1), 10);
     if (!isNaN(refNum)) {
@@ -224,7 +251,7 @@ export async function handleClownCommand(
     }
   }
 
-  // 3. Keyword search: /clown 餐厅
+  // 4. Keyword search: /clown 餐厅
   if (!exchange && args && !args.startsWith("#")) {
     exchange = findExchangeByKeyword(args);
     if (!exchange) {
@@ -232,28 +259,11 @@ export async function handleClownCommand(
     }
   }
 
-  // Track whether we fell back to latest due to failed reply targeting
-  let replyFallback = false;
-
-  // 4. Default: latest exchange (try cache first, then load from disk)
+  // 5. Default: latest exchange
   if (!exchange) {
-    // Check if user tried to reply but we couldn't resolve the target
-    if (!wasReplyResolved() && !args) {
-      replyFallback = true;
-      logger.info("/clown: reply targeting failed — falling back to latest exchange");
-    }
-
     exchange = getLatestExchange();
-    if (!exchange) {
-      logger.info("/clown: cache empty, loading from session transcript files...");
-      loadLatestSessionFromDisk(logger);
-      exchange = getLatestExchange();
-    }
     logger.info(`/clown: using latest exchange: ${exchange ? `#${exchange.refNum}` : "none"}`);
   }
-
-  // Reset reply state for next command
-  setReplyResolved(true);
 
   if (!exchange) {
     return {
@@ -281,8 +291,9 @@ export async function handleClownCommand(
     lastExchange = exchange;
     lastPriorExchanges = priorExchanges;
     let output = formatEvaluation(result);
-    if (replyFallback) {
-      output = "⚠️ Could not resolve the replied message — it may have been sent before OpenClown was active. Evaluating the most recent exchange instead.\n\n" + output;
+    if (matchedViaContent) {
+      const preview = exchange.assistantResponse.slice(0, 50).replace(/\n/g, " ");
+      output = `📎 Matched reply: "${preview}..."\n\n${output}`;
     }
     return { text: output };
   } catch (error) {

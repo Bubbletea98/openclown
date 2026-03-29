@@ -25,15 +25,20 @@ You ask OpenClaw to do something
   OpenClaw completes the task
         │
         ▼
-  You type /clown
+  You reply to the response with /clown
+  (or just type /clown for the latest)
         │
         ▼
 ┌─────────────────────────────────────┐
 │         OpenClown Circus            │
 │                                     │
+│  📎 Identify target exchange        │
+│     (reply content matching,        │
+│      keyword, or latest)            │
 │  📝 Gather context                  │
-│     (current exchange + up to 3     │
-│      prior exchanges for follow-ups)│
+│     (target + up to 3 prior         │
+│      exchanges for follow-ups       │
+│      + tool calls & results)        │
 │              │                      │
 │  🎭 Philosopher  → questions assumptions
 │  🔒 Security     → flags data exposure
@@ -142,14 +147,27 @@ This works with any model your OpenClaw provider supports.
 
 ## Quick start
 
+On mobile (WhatsApp, Telegram, Slack, Discord):
+
+1. Ask OpenClaw a question and wait for the response
+2. **Long-press** (or swipe) the AI response you want to evaluate
+3. Tap **Reply**
+4. Type `/clown` and send
+
+That's it. OpenClown identifies the message you replied to and evaluates it with full context — including the original question, any tool calls the AI made, and prior conversation history.
+
+If you just want to evaluate the latest response without replying, simply send `/clown`.
+
+### All commands
+
 ```bash
-# Evaluate the last AI task
+# Evaluate (reply to any AI message, then type:)
 /clown
 
-# Evaluate a specific response by reference number
-/clown #3
+# Or evaluate the latest response directly
+/clown
 
-# Fuzzy search by keyword
+# Search by keyword
 /clown restaurant
 
 # Re-run the original task with evaluation feedback
@@ -187,17 +205,19 @@ OpenClown works anywhere OpenClaw does — WhatsApp, Telegram, Slack, Discord, o
 
 ### Other ways to target a response
 
+**By reply** (messaging channels) — reply to any AI response with `/clown`:
+
+```
+[Reply to any OpenClaw message] /clown
+→ OpenClown matches the quoted text to find the right exchange
+→ Shows: 📎 Matched reply: "..."
+```
 
 **By keyword** — search and evaluate:
 
 ```
 /clown restaurant
-```
-
-**By reply** (messaging channels) — reply to any AI response with `/clown`:
-
-```
-[Reply to 🎪 #1] /clown
+→ finds and evaluates the most recent exchange mentioning "restaurant"
 ```
 
 ### Follow-up questions — automatic conversation context
@@ -475,7 +495,16 @@ openclaw config set plugins.entries.openclown.config.tagStyle subtle
 
 ## Reply targeting
 
-On messaging channels (WhatsApp, Telegram, Slack, Discord), you can reply to a specific AI response and type `/clown` to evaluate just that exchange. OpenClown tags outbound messages with a subtle reference `[🎪 #N]` and uses it to resolve which task you're targeting.
+On messaging channels (WhatsApp, Telegram, Slack, Discord), you can **reply to any AI response** and type `/clown` to evaluate that specific exchange — even if it's not the most recent one. OpenClown uses content matching to identify which response you replied to.
+
+When reply targeting succeeds, you'll see a confirmation:
+
+```
+📎 Matched reply: "有的！多伦多周日公共泳池开门，推荐几个..."
+
+🎪 OpenClown Evaluation
+...
+```
 
 | Channel | Reply + /clown | /clown (last task) | /clown \<keyword\> |
 |---------|:-:|:-:|:-:|
@@ -570,15 +599,16 @@ openclown/
 │   │   ├── generator-prompt.ts     # LLM prompts for creating/editing performers
 │   │   └── skill-loader.ts         # Auto-loads skills from built-in + user dirs
 │   ├── providers/
-│   │   └── index.ts                # LLM caller via OpenClaw subagent runtime
+│   │   └── index.ts                # LLM caller (subagent + direct API fallback)
 │   ├── transcript/
-│   │   ├── cache.ts                # In-memory exchange cache + conversation history
+│   │   ├── cache.ts                # Exchange cache + content matching + persistence
 │   │   ├── extractor.ts            # Parses messages into structured exchanges
 │   │   └── reader.ts               # Session transcript reader
 │   ├── hooks/
 │   │   ├── agent-end.ts            # Caches exchanges on task completion
+│   │   ├── message-preprocessed.ts # Extracts reply context for content matching
 │   │   ├── message-sending.ts      # Tags outbound messages with [🎪 #N]
-│   │   └── inbound-claim.ts        # Extracts ref from reply context
+│   │   └── inbound-claim.ts        # Reply targeting (plugin-bound conversations)
 │   ├── output/formatter.ts         # Formats evaluation results
 │   └── config/schema.ts            # Plugin config schema
 ├── skills/                         # Built-in performer definitions (12 total)

@@ -15,6 +15,7 @@ export type CachedExchange = {
   assistantResponse: string;
   thinking?: string[];
   executedTools?: Array<{ name: string; arguments: Record<string, unknown> }>;
+  toolCallSummaries?: string[];
   rawMessages: CachedMessage[];
   timestamp: number;
 };
@@ -47,7 +48,6 @@ function saveToDisk(): void {
     mkdirSync(PERSIST_DIR, { recursive: true });
     const data: PersistedData = {
       refCounter,
-      // Only persist the serializable fields (drop rawMessages to save space)
       exchanges: recentExchanges.map((e) => ({
         refNum: e.refNum,
         userRequest: e.userRequest,
@@ -55,6 +55,7 @@ function saveToDisk(): void {
         assistantResponse: e.assistantResponse,
         thinking: e.thinking,
         executedTools: e.executedTools,
+        toolCallSummaries: e.toolCallSummaries,
         rawMessages: [], // Don't persist raw messages (too large)
         timestamp: e.timestamp,
       })),
@@ -68,7 +69,7 @@ function saveToDisk(): void {
 // --- State ---
 
 const MAX_CACHED_EXCHANGES = 50;
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours (was 30 minutes)
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 // Load persisted state on startup
 const persisted = loadFromDisk();
@@ -84,26 +85,17 @@ if (persisted) {
   );
 }
 
-// Temp lookup: for reply targeting (inbound_claim → command handler)
+// Temp lookup: for reply targeting via [🎪 #N] tag
 const replyTargetCache = new Map<string, { refNum: number; expiresAt: number }>();
 
-// --- Track whether current command was resolved via reply ---
-
-let lastReplyResolved = false;
-
-export function setReplyResolved(resolved: boolean): void {
-  lastReplyResolved = resolved;
-}
-
-export function wasReplyResolved(): boolean {
-  return lastReplyResolved;
-}
+// Temp lookup: for reply targeting via quoted text content matching
+const replyContentCache = new Map<string, { quotedText: string; expiresAt: number }>();
 
 // --- Public API ---
 
 export function getNextRefNum(): number {
   ++refCounter;
-  saveToDisk(); // Persist counter so it survives restarts
+  saveToDisk();
   return refCounter;
 }
 
@@ -150,6 +142,35 @@ export function findExchangeByKeyword(keyword: string): CachedExchange | undefin
     );
 }
 
+/**
+ * Find an exchange by matching quoted text against assistantResponse.
+ * Uses substring matching with normalization. Prefers the most recent match.
+ */
+export function findExchangeByContent(quotedText: string): CachedExchange | undefined {
+  if (!quotedText || quotedText.length < 5) return undefined;
+
+  const normalized = normalizeForMatch(quotedText);
+
+  // Search in reverse (most recent first) — recency bias
+  return [...recentExchanges]
+    .reverse()
+    .find((e) => normalizeForMatch(e.assistantResponse).includes(normalized));
+}
+
+/**
+ * Normalize text for fuzzy content matching.
+ * Strips whitespace variations, markdown, and common formatting differences.
+ */
+function normalizeForMatch(text: string): string {
+  return text
+    .replace(/\s+/g, " ") // collapse whitespace
+    .replace(/[*_~`#]/g, "") // strip markdown
+    .trim()
+    .toLowerCase();
+}
+
+// --- Reply target via [🎪 #N] tag ---
+
 export function setReplyTarget(key: string, refNum: number): void {
   replyTargetCache.set(key, {
     refNum,
@@ -163,6 +184,23 @@ export function consumeReplyTarget(key: string): number | undefined {
   replyTargetCache.delete(key);
   if (Date.now() > entry.expiresAt) return undefined;
   return entry.refNum;
+}
+
+// --- Reply target via quoted text content ---
+
+export function setReplyContent(key: string, quotedText: string): void {
+  replyContentCache.set(key, {
+    quotedText,
+    expiresAt: Date.now() + 10_000, // 10 second TTL
+  });
+}
+
+export function consumeReplyContent(key: string): string | undefined {
+  const entry = replyContentCache.get(key);
+  if (!entry) return undefined;
+  replyContentCache.delete(key);
+  if (Date.now() > entry.expiresAt) return undefined;
+  return entry.quotedText;
 }
 
 function pruneExpired(): void {
